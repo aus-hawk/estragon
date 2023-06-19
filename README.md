@@ -22,7 +22,7 @@ something being installed beyond the base software that's being configured
 directly.
 
 Estragon provides a middle ground by being a powerful dotfile manager and a
-simple package manager wrapper all in one executable. Different dotfile
+simple package manager wrapped all into one executable. Different dotfile
 configurations can be managed in different ways, and different programs can be
 installed with different packages in different environments.
 
