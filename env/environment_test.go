@@ -79,94 +79,124 @@ func TestEnvSelect(t *testing.T) {
 		"many  regexp ! bad|worse",
 	}
 	tests := []struct {
-		desc     string
-		env      Environment
-		outKey   string
-		outMatch Match
+		desc   string
+		env    Environment
+		key    string
+		fields []string
 	}{
 		{
 			"Select wildcard",
 			Environment{"no", "match"},
 			keys[0],
-			Match{},
+			nil,
 		},
 		{
 			`Select " this test"`,
 			Environment{"useless", "this", "key", "test"},
 			keys[1],
-			Match{"this test", regexp.MustCompile("^(?:this test)$")},
+			[]string{"this", "test"},
 		},
 		{
 			`Select "test(.*)regexp"`,
 			Environment{"testabcdregexp", "key", "testefghregexp"},
 			keys[2],
-			Match{
-				"testabcdregexp",
-				regexp.MustCompile("^(?:test(.*)regexp)$"),
-			},
+			[]string{"testabcdregexp"},
 		},
 		{
 			`Select "mult.ple regex."`,
 			Environment{"regexx", "multuple", "abcdefg"},
 			keys[3],
-			Match{
-				"multuple regexx",
-				regexp.MustCompile("^(?:mult.ple regex.)$"),
-			},
+			[]string{"multuple", "regexx"},
 		},
 		{
 			`Select "multiple regexp ! bad|worse"`,
 			Environment{"regexp", "many", "abcdefg"},
 			keys[4],
-			Match{
-				"many regexp",
-				regexp.MustCompile("^(?:many regexp)$"),
-			},
+			[]string{"many", "regexp"},
 		},
 		{
 			`Don't select "multiple regexp ! bad|worse" because bad`,
 			Environment{"regexp", "many", "bad"},
 			"",
-			Match{},
+			nil,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			key, match := test.env.Select(keys)
+			key, fields := test.env.Select(keys)
 
-			if test.outKey != key {
+			if test.key != key {
 				t.Errorf(
 					"expected key to be %#v, got %#v",
-					test.outKey,
+					test.key,
 					key,
 				)
 			}
 
-			if !reflect.DeepEqual(test.outMatch.fields, match.fields) {
+			if !reflect.DeepEqual(test.fields, fields) {
 				t.Errorf(
 					"expected fields to be %#v, got %#v",
-					test.outMatch.fields,
+					test.fields,
+					fields,
+				)
+			}
+		})
+	}
+}
+
+func TestNewMatch(t *testing.T) {
+	tests := []struct {
+		desc        string
+		key         string
+		fields      []string
+		outFields   string
+		regexp      string
+		shouldPanic bool
+	}{
+		{
+			"Bad regexp",
+			"key with)bad regex^+p",
+			[]string{"doesn't", "matter"},
+			"",
+			"",
+			true,
+		},
+		{
+			"Good regexp",
+			"goo. regex+",
+			[]string{"good", "regexxx"},
+			"good regexxx",
+			"^(?:goo. regex+)$",
+			false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if r == nil && test.shouldPanic {
+					t.Fatal("expected panic but didn't")
+				} else if r != nil && !test.shouldPanic {
+					t.Fatal("unexpectedly panicked")
+				}
+			}()
+
+			match := NewMatch(test.key, test.fields)
+
+			if test.outFields != match.fields {
+				t.Errorf(
+					"expected fields to be %#v, got %#v",
+					test.outFields,
 					match.fields,
 				)
 			}
 
-			if (test.outMatch.regexp == nil) != (match.regexp == nil) {
-				t.Fatalf(
-					"expected regexp to be to be %#v, got %#v",
-					test.outMatch.fields,
-					match.fields,
-				)
-			}
-
-			if match.regexp == nil {
-				// Skip if no regexp.
-				return
-			}
-			if test.outMatch.regexp.String() != match.regexp.String() {
+			if test.regexp != match.regexp.String() {
 				t.Errorf(
 					"expected regexp to be %#v, got %#v",
-					test.outMatch.regexp.String(),
+					test.regexp,
 					match.regexp.String(),
 				)
 			}

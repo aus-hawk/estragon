@@ -36,28 +36,23 @@ func allCompile(fields []string) bool {
 // Select determines which key in a slice of strings `keys` matches the
 // environment. A key is a string of regular expressions that may match any
 // field in the environment separated by spaces. The first key that matches the
-// environment will be returned, or an empty string otherwise. A Match will also
-// be returned to perform regexp replacement using the submatches in a key.
+// environment will be returned, or an empty string otherwise. The fields that
+// matched the key in the order that they were matched are also returned as a
+// slice.
 //
 // Note that it's possible for the empty returned string to actually be the
 // matched key itself. This is because an entirely whitespace key acts as a
 // wildcard that matches if no other non-wildcard keys match.
-func (env Environment) Select(keys []string) (key string, match Match) {
+func (env Environment) Select(keys []string) (key string, fields []string) {
 	for _, k := range keys {
 		pattern := newPattern(k)
 		if pattern.wildcard() {
 			// Wildcards are fallbacks.
 			key = k
 		} else {
-			fields := env.patternFields(pattern)
+			fields = env.patternFields(pattern)
 			if fields != nil {
 				key = k
-				match.fields = strings.Join(fields, " ")
-				r := strings.Join(pattern.good, " ")
-				r = "^(?:" + r + ")$"
-				// Since patternFields is only non-nil if the
-				// pattern is correct, this is safe.
-				match.regexp = regexp.MustCompile(r)
 				return
 			}
 		}
@@ -115,6 +110,19 @@ func (env Environment) matchingFields(fields []string) []string {
 type Match struct {
 	fields string
 	regexp *regexp.Regexp
+}
+
+// NewMatch builds a Match from the key and fields returned from the Select
+// method run from an Environment. Since the returned values should be from the
+// Select method which returns already valid arguments, an invalid key string
+// will panic.
+func NewMatch(key string, fields []string) Match {
+	fieldString := strings.Join(fields, " ")
+	r := strings.Join(newPattern(key).good, " ")
+	r = "^(?:" + r + ")$"
+	regexp := regexp.MustCompile(r)
+
+	return Match{fieldString, regexp}
 }
 
 // Replace will substitute all of the subgroup matches syntax in the string s.

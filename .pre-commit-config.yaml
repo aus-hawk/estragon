@@ -11,7 +11,7 @@ repos:
     rev: v1.0.0-rc.1
     hooks:
       - id: go-mod-tidy-repo
-      - id: go-test-pkg
-      - id: go-vet-pkg
+      - id: go-test-mod
+      - id: go-vet-mod
       - id: go-fmt
         args: ["-s", "-w"]
