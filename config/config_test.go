@@ -9,6 +9,15 @@ const goodYaml = `
 method: deep
 root: xdg
 
+check-cmd:
+  distro-one: ["pkgmgr", "check"]
+  distro-two: ["packy", "query"]
+  "t..t": ["testpkg-check"]
+install-cmd:
+  distro-one: ["pkgmgr", "install"]
+  distro-two: ["packy", "get"]
+  "t..t": ["testpkg-install"]
+
 environments:
   test:
     method: shallow
@@ -37,6 +46,16 @@ var goodSchema = schema{
 	Common: common{
 		Method: "deep",
 		Root:   "xdg",
+	},
+	CheckCmd: map[string][]string{
+		"distro-one": {"pkgmgr", "check"},
+		"distro-two": {"packy", "query"},
+		"t..t":       {"testpkg-check"},
+	},
+	InstallCmd: map[string][]string{
+		"distro-one": {"pkgmgr", "install"},
+		"distro-two": {"packy", "get"},
+		"t..t":       {"testpkg-install"},
 	},
 	Environments: map[string]common{
 		"test": {
@@ -119,6 +138,57 @@ func TestNewConfig(t *testing.T) {
 					"expected config to be %#v, got %#v",
 					test.c,
 					c,
+				)
+			}
+		})
+	}
+}
+
+func TestCheckAndInstallCmd(t *testing.T) {
+	tests := []struct {
+		desc       string
+		env        mockEnvSelector
+		checkCmd   []string
+		installCmd []string
+	}{
+		{
+			"Environment matches distro-one",
+			mockEnvSelector{"distro-one", []string{}},
+			[]string{"pkgmgr", "check"},
+			[]string{"pkgmgr", "install"},
+		},
+		{
+			"Environment matches t..t",
+			mockEnvSelector{"t..t", []string{}},
+			[]string{"testpkg-check"},
+			[]string{"testpkg-install"},
+		},
+		{
+			"Environment does not match",
+			mockEnvSelector{"", []string{}},
+			nil,
+			nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			config := Config{goodSchema, test.env}
+			checkCmd := config.CheckCmd()
+			if !reflect.DeepEqual(test.checkCmd, checkCmd) {
+				t.Errorf(
+					"expected checkCmd to be %#v, got %#v",
+					test.checkCmd,
+					checkCmd,
+				)
+			}
+
+			installCmd := config.InstallCmd()
+			if !reflect.DeepEqual(test.installCmd, installCmd) {
+				t.Errorf(
+					"expected installCmd to be %#v, got %#v",
+					test.installCmd,
+					installCmd,
 				)
 			}
 		})
