@@ -182,6 +182,11 @@ Note that these commands don't include things like `sudo`. If something like
 `sudo` is needed to run your package manager, you should run Estragon itself
 with a user-switching program.
 
+If for some reason your package manager commands cannot accept the package name
+as the last argument, you can write a shell script that's either in a directory
+in your `PATH` or in your Estragon root directory and call it with
+`./script.sh`.
+
 ### `dot-prefix`
 
 The `dot-prefix` field specifies if files with a name that starts with `dot-`
