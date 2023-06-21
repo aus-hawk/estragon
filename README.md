@@ -99,14 +99,16 @@ for a particular program. It does _not_ refer to the directory containing the
 
 The root level configurations are defined by this table:
 
-| Key            | Description and possible values              |
-| -------------- | -------------------------------------------- |
-| `method`       | `"deep"`, `"shallow"`, `"copy"`, or `"none"` |
-| `root`         | `"home"`, `"xdg"`, or a full path            |
-| `dot-prefix`   | `true` or `false`                            |
-| `environments` | Environment specific simple settings         |
-| `packages`     | A [package specification map](#packages)     |
-| `dots`         | A [dot map](#dots)                           |
+| Key            | Description and possible values                          |
+| -------------- | -------------------------------------------------------- |
+| `method`       | `"deep"`, `"shallow"`, `"copy"`, or `"none"`             |
+| `root`         | `"home"`, `"xdg"`, or a full path                        |
+| `check-cmd`    | An [environment-command map](#check-cmd-and-install-cmd) |
+| `install-cmd`  | An [environment-command map](#check-cmd-and-install-cmd) |
+| `dot-prefix`   | `true` or `false`                                        |
+| `environments` | Environment specific simple settings                     |
+| `packages`     | A [package specification map](#packages)                 |
+| `dots`         | A [dot map](#dots)                                       |
 
 ### `method`
 
@@ -146,6 +148,39 @@ Remember to export `$XDG_CONFIG_HOME` manually if you are using `"xdg"` and
 using Estragon to manage your shell configuration as those configs have probably
 not be exported yet (`$LOCALAPPDATA` should be set already if you are on a
 Windows machine)!
+
+### `check-cmd` and `install-cmd`
+
+The `check-cmd` represents the command used to verify if a package is already
+installed to your system. The `install-cmd` is the command that will actually
+install the package if `check-cmd` indicates that it is not already. The actual
+values of each of these keys are maps from environments to lists of strings, the
+list representing the actual command to run. If the environment does not match
+any of the keys, attempting to install packages with Estragon will fail.
+
+The command should expect the name of the package to be the last argument. If
+running the program with the package name returns a non-zero value, the
+installation fails.
+
+The commands are not run by any particular shell, so shell expansions will not
+work.
+
+For example, running Pacman to install a package is typically run as `pacman -S
+[PACKAGE]`, and checking for a package with Pacman is `pacman -T [PACKAGE]`.
+This means that if you use `arch` in your environment string to indicate any
+Arch Linux-based distribution (which uses Pacman), you can set these arguments
+like this:
+
+```yaml
+check-cmd:
+  arch: ["pacman", "-T"]
+install-cmd:
+  arch: ["pacman", "-S"]
+```
+
+Note that these commands don't include things like `sudo`. If something like
+`sudo` is needed to run your package manager, you should run Estragon itself
+with a user-switching program.
 
 ### `dot-prefix`
 

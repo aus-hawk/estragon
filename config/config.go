@@ -8,7 +8,9 @@ import (
 )
 
 type schema struct {
-	Common       common `yaml:",inline"`
+	Common       common              `yaml:",inline"`
+	CheckCmd     map[string][]string `yaml:"check-cmd"`
+	InstallCmd   map[string][]string `yaml:"install-cmd"`
 	Environments map[string]common
 	Packages     map[string]map[string][]string
 	Dots         map[string]dot
@@ -45,6 +47,24 @@ func NewConfig(in []byte, s EnvSelector) (c Config, err error) {
 	err = yaml.Unmarshal(in, &c.schema)
 	c.selector = s
 	return
+}
+
+// CheckCmd returns the check command that matches the environment. If none of
+// the environments match, nil is returned.
+func (c Config) CheckCmd() []string {
+	checkers := c.schema.CheckCmd
+	key, _ := c.selector.Select(mapKeys(checkers))
+	cmd, _ := checkers[key]
+	return cmd
+}
+
+// InstallCmd returns the install command that matches the environment. If none
+// of the environments match, nil is returned.
+func (c Config) InstallCmd() []string {
+	installers := c.schema.InstallCmd
+	key, _ := c.selector.Select(mapKeys(installers))
+	cmd, _ := installers[key]
+	return cmd
 }
 
 // A Package represents a single key-value pair in the package map of a dot. The
