@@ -1,4 +1,4 @@
-package subcmd
+package install
 
 import (
 	"errors"
@@ -39,7 +39,7 @@ type mockCmdRunner struct {
 	t          *testing.T
 }
 
-func (m mockCmdRunner) Run(cmd []string) (int, error) {
+func (m mockCmdRunner) run(cmd []string) (int, error) {
 	lastArg := cmd[len(cmd)-1]
 	if len(cmd) >= 2 && cmd[1] == "install" {
 		if !inSlice(lastArg, m.installRet.lastArgs) {
@@ -72,8 +72,9 @@ func inSlice(s string, ss []string) bool {
 }
 
 func TestNewPackageInstaller(t *testing.T) {
-	expected := PackageInstaller{mockPackageManager{}, mockCmdRunner{}}
-	actual := NewPackageInstaller(mockPackageManager{}, mockCmdRunner{})
+	// run is nil in both cases because functions are not comparable.
+	expected := PackageInstaller{mockPackageManager{}, nil}
+	actual := NewPackageInstaller(mockPackageManager{}, nil)
 	if !reflect.DeepEqual(expected, actual) {
 		t.Errorf("expected %#v, got %#v", expected, actual)
 	}
@@ -86,20 +87,6 @@ func TestInstall(t *testing.T) {
 		runner mockCmdRunner
 		err    string
 	}{
-		{
-			"Invalid check cmd",
-			mockPackageManager{},
-			mockCmdRunner{},
-			"No matching check-cmd for environment",
-		},
-		{
-			"Invalid install cmd",
-			mockPackageManager{
-				check: []string{"pkg", "check"},
-			},
-			mockCmdRunner{},
-			"No matching install-cmd for environment",
-		},
 		{
 			"Error getting packages",
 			mockPackageManager{
@@ -215,9 +202,9 @@ func TestInstall(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			test.runner.t = t
 
-			pkgInst := PackageInstaller{test.mgr, test.runner}
+			pkgInst := PackageInstaller{test.mgr, test.runner.run}
 			// arg doesn't matter for testing
-			err := pkgInst.Install("")
+			err := pkgInst.Install([]string{""}, false)
 
 			if err != nil {
 				if err.Error() != test.err {
