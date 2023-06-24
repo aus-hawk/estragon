@@ -42,6 +42,7 @@ func (p PackageInstaller) Install(dots []string, dry bool) error {
 	}
 
 	for _, dot := range dots {
+		fmt.Printf("Installing packages for %s\n", dot)
 		err := p.installDot(dot)
 		if err != nil {
 			return err
@@ -57,7 +58,7 @@ func (p PackageInstaller) installDot(dot string) error {
 		return err
 	}
 	for _, pkg := range pkgs {
-		fmt.Printf("%s: %s\n", pkg.Name, pkg.Desc)
+		fmt.Printf("  %s: %s\n", pkg.Name, pkg.Desc)
 		for _, realPkg := range pkg.List {
 			err := p.installPackage(realPkg)
 			if err != nil {
@@ -70,7 +71,7 @@ func (p PackageInstaller) installDot(dot string) error {
 }
 
 func (p PackageInstaller) installPackage(pkg string) error {
-	fmt.Printf("  Installing %s...", pkg)
+	fmt.Printf("    Installing %s...", pkg)
 	checkCmd := append(p.mgr.CheckCmd(), pkg)
 	code, err := p.run(checkCmd)
 	if err != nil {
