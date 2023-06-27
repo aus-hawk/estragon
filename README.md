@@ -271,14 +271,15 @@ overrides that setting. A dot configuration is defined by this table:
 
 The `rules` field is a map from environment regular expressions to file maps. A
 file map is the rules for where to place dotfiles. The key of each mapping is
-the path to the file relative to the dotfile directory. The value is a path
-(relative to the Estragon root directory or full) to the output file. If a value
-is empty, it is not exported. If a key is empty, it acts as a wildcard for
-unmatched files. If a key is a single slash (`"/"`), the value is a _folder_,
-not a file, and specifies where the root is for the environment. The value
-supports environment variables. Any files that are specified by the rules will
-ignore the `root` and `dot-prefix` settings. See the [environment string
-section] on how to format the environment key. For example:
+the path to the file (or folder, but from here just refered to as files)
+relative to the dotfile directory. The value is a path (relative to the Estragon
+root directory or full) to the output file. If a value is empty, it is not
+exported. If a key is empty, it acts as a wildcard for unmatched files. Because
+only one location can be specified per file, an empty key can only have an empty
+value. The value supports environment variables. Any files that are specified by
+the rules will ignore the `root` and `dot-prefix` settings. See the [environment
+string section](#environment-string) on how to format the environment key. For
+example:
 
 ```yaml
 rules:
