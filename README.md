@@ -102,7 +102,7 @@ The root level configurations are defined by this table:
 | Key            | Description and possible values                          |
 | -------------- | -------------------------------------------------------- |
 | `method`       | `"deep"`, `"shallow"`, `"copy"`, or `"none"`             |
-| `root`         | `"home"`, `"xdg"`, or a full path                        |
+| `root`         | A full path                                              |
 | `check-cmd`    | An [environment-command map](#check-cmd-and-install-cmd) |
 | `install-cmd`  | An [environment-command map](#check-cmd-and-install-cmd) |
 | `dot-prefix`   | `true` or `false`                                        |
@@ -113,41 +113,40 @@ The root level configurations are defined by this table:
 ### `method`
 
 The `method` field specifies the default method by which the dotfiles will stay
-in sync, by either copying the files directly (`"copy"`), creating a symlink to
-every file (`"deep"`), creating as few symlinks as possible (`"shallow"`), or
-not doing anything with the dotfiles at all (`"none"`). All of these will follow
-the [rules of an individual dot](#rules). Different methods require different
-frequencies of syncing if you are constantly modifying your configurations
-(`"copy"`, `"deep"`, `"shallow"`, and `"none"` from most to least frequently
-needing to sync).
+in sync, by either copying every file directly (`"copy"`), creating a symlink to
+every file (`"deep"`), creating symlinks only to specified files and folders in
+[`rules`](#rules) (`"shallow"`), or not doing anything with the dotfiles at all
+(`"none"`). All of these will follow the [rules of an individual dot](#rules).
+Different methods require different frequencies of syncing if you are constantly
+modifying your configurations (`"copy"`, `"deep"`, `"shallow"`, and `"none"`
+from most to least frequently needing to sync).
+
+If `method` is set to `"shallow"` and there are no rules, a single symlink is
+created from the specified [`root`](#root) to the dot root.
+
+Files will never be overwritten with a link or a copied file unless the file is
+known to be owned by the Estragon directory.
 
 ### `root`
 
-The `root` field specifies where the dotfiles' directory structures will be
-placed. If it is `"home"`, it will place all files without [rules](#rules) in
-your home directory. If it is `"xdg"`, it will use `$XDG_CONFIG_HOME/{dot}`
-environment variable, or fall back to `$HOME/.config/:` on Unix-likes and
-`$LOCALAPPDATA/:` on Windows (dollar sign is used for environment variables
-regardless of operating system). If it is neither of these, it will assume that
-the value is a full path, which processes environment variables. If the full
-path contains `:`, it will replace that `:` with the name of the dotfile
-directory.
+The `root` field specifies the full path to where the dotfiles' directory
+structures will be placed. Environment variables are processed, as well as `~`
+being expanded to `$HOME`. Environment variables should be denoted with the
+typical dollar sign shell syntax regardless of OS. If an environment variable
+does not exist, it will be treated as if it is an empty string. If the path
+contains `:`, it will replace that `:` with the name of the dotfile directory,
+which can be used to specify things like the XDG config directory if the
+directory name matches the name of its config folder.
 
 Given a dotfile directory in the Estragon root called `dots` which contains
 `dots/a` and `dots/dir/b`, the below table shows examples of how these
 dotfiles will be installed on a Unix system.
 
-| `root`         | `dots/a` location         | `dots/dir/b` location         |
-| -------------- | ------------------------- | ----------------------------- |
-| `"home"`       | `$HOME/a`                 | `$HOME/dir/b`                 |
-| `"xdg"`        | `$XDG_CONFIG_HOME/dots/a` | `$XDG_CONFIG_HOME/dots/dir/b` |
-| `"$HOME/conf"` | `$HOME/conf/a`            | `$HOME/conf/dir/b`            |
-| `"/conf/:"`    | `/conf/dots/a`            | `/conf/dots/dir/b`            |
-
-Remember to export `$XDG_CONFIG_HOME` manually if you are using `"xdg"` and
-using Estragon to manage your shell configuration as those configs have probably
-not be exported yet (`$LOCALAPPDATA` should be set already if you are on a
-Windows machine)!
+| `root`         | `dots/a` location | `dots/dir/b` location |
+| -------------- | ----------------- | --------------------- |
+| `"$HOME/conf"` | `$HOME/conf/a`    | `$HOME/conf/dir/b`    |
+| `"~/conf"`     | `$HOME/conf/a`    | `$HOME/conf/dir/b`    |
+| `"/conf/:"`    | `/conf/dots/a`    | `/conf/dots/dir/b`    |
 
 ### `check-cmd` and `install-cmd`
 
@@ -194,7 +193,9 @@ should have that prefix replaced with a lone dot (`.`). This is to avoid
 problems that come with hidden files in editors and shells. It is `true` by
 default. If it is `false`, no changes are made to files that start with `dot-`.
 If a file is directly referenced by the [rules](#rules) (not by proxy by being
-in a referenced folder), this setting is ignored.
+in a referenced folder), or the dot is configured to use the shallow method,
+this setting is ignored and treated as false for that particular file or the
+entire folder respectively.
 
 ### `environments`
 
@@ -272,19 +273,21 @@ overrides that setting. A dot configuration is defined by this table:
 The `rules` field is a map from environment regular expressions to file maps. A
 file map is the rules for where to place dotfiles. The key of each mapping is
 the path to the file (or folder, but from here just refered to as files)
-relative to the dotfile directory. The value is a path (relative to the Estragon
-root directory or full) to the output file. If a value is empty, it is not
-exported. If a key is empty, it acts as a wildcard for unmatched files. Because
-only one location can be specified per file, an empty key can only have an empty
-value. The value supports environment variables. Any files that are specified by
-the rules will ignore the `root` and `dot-prefix` settings. See the [environment
-string section](#environment-string) on how to format the environment key. For
-example:
+relative to the dotfile directory. If a key is empty, it acts as a wildcard for
+unmatched files. Because only one location can be specified per file, an empty
+key can have any value and all files that fall back to the wildcard are ignored
+and therefore not deployed. If a value is the empty string, the associated key
+will not be deployed. The value supports environment variables and `~` to
+`$HOME` expansion. Any files that are specified by the rules will ignore the
+`root` and `dot-prefix` settings. See the [environment string
+section](#environment-string) on how to format the environment key.
+
+For example:
 
 ```yaml
 rules:
   "home":
-    "gitconfig-home": "$HOME/.gitconfig"
+    "gitconfig-home": "$HOME/.gitconfig" # can be shortened to "~/.gitconfig"
     "": ""
   "work":
     "gitconfig-work": "$HOME/.gitconfig"
@@ -293,6 +296,36 @@ rules:
     "gitconfig-school": "$HOME/.gitconfig"
     "": ""
 ```
+
+The method for resolving where a file will be placed using the deep or copy
+methods is pretty simple:
+
+1. If the file is any of the keys, the output file will be the value.
+1. If the previous case isn't true but the file is within any of the directories
+   specified as keys, the output file will be placed with the key directory
+   replaced with the value directory. The most specific folder will take
+   priority.
+1. If the previous case isn't true and there is a wildcard to empty string (`"":
+""`), then the file is ignored and there is no output file.
+1. If none of the previous cases are true, the file is placed relative to the
+   specified `root`.
+
+As an example, say there is a file called `dot/dir/ect/f.txt`, where `dot` is a
+folder that exists in the Estragon root:
+
+1. If there is a key called `"dir/ect/f.txt"`, that key will take precedence and
+   the value will be the one associated with this key.
+1. If there is no key like the previous one but there is a `"dir/ect"` and a
+   `"dir"` (although this is not recommended), the `"dir/ect"` will take
+   precedence since it is more specific. If the value to that key is `"~/abc"`,
+   then the output file will be `"~/abc/f.txt"`. If instead that value was
+   associated with the `"dir"` key, the output file would have been
+   `"~/abc/ect/f.txt"`.
+1. If there is no key like any of the previous ones, but there is an empty key,
+   Estragon acts as if `f.txt` did not exist.
+1. If none of the previous conditions are true, then `f.txt` will be placed
+   relative to the specified root. For example, if it was `"home"`, then the
+   output file would be `"$HOME/dir/ect/f.txt"`.
 
 #### Dot `packages`
 
