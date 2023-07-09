@@ -36,6 +36,12 @@ func NewPackageInstaller(mgr PackageManager, run CmdRunner) PackageInstaller {
 // installation actually occurs. Instead, the commands used and the packages
 // that will be installed are printed to standard out.
 func (p PackageInstaller) Install(dots []string, dry bool) error {
+	checkCmd := strings.Join(p.mgr.CheckCmd(), " ")
+	fmt.Printf("Matching check-cmd: %s [PACKAGE]\n", checkCmd)
+
+	installCmd := strings.Join(p.mgr.InstallCmd(), " ")
+	fmt.Printf("Matching install-cmd: %s [PACKAGE]\n", installCmd)
+
 	if dry {
 		p.dryInstall(dots)
 		return nil
@@ -102,12 +108,6 @@ func (p PackageInstaller) installPackage(pkg string) error {
 }
 
 func (p PackageInstaller) dryInstall(dots []string) {
-	checkCmd := strings.Join(p.mgr.CheckCmd(), " ")
-	fmt.Printf("Matching check-cmd: %s [PACKAGE]\n", checkCmd)
-
-	installCmd := strings.Join(p.mgr.InstallCmd(), " ")
-	fmt.Printf("Matching install-cmd: %s [PACKAGE]\n", installCmd)
-
 	for _, dot := range dots {
 		fmt.Printf("Packages for dot %s and their expansions:", dot)
 		pkgs, err := p.mgr.Packages(dot)
