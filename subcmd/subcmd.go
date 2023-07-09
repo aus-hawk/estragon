@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/aus-hawk/estragon/config"
-	"github.com/aus-hawk/estragon/logging"
 	"github.com/aus-hawk/estragon/subcmd/deploy"
 	"github.com/aus-hawk/estragon/subcmd/install"
 )
@@ -56,8 +55,6 @@ func (s SubcmdRunner) installSubCmd(dots []string) error {
 
 func runCmd(args []string) (int, error) {
 	cmd := exec.Command(args[0], args[1:]...)
-	cmdName := strings.Join(args, " ")
-	logging.InfoLogger.Println(cmdName)
 	err := cmd.Run()
 	if err != nil {
 		return 0, nil
@@ -66,10 +63,8 @@ func runCmd(args []string) (int, error) {
 	if exitError, ok := err.(*exec.ExitError); ok {
 		// Ignore the error, only use it for the exit code.
 		exitCode := exitError.ExitCode()
-		logging.InfoLogger.Printf("%s returned %d", cmdName, exitCode)
 		return exitCode, nil
 	} else {
-		logging.ErrorLogger.Println(err)
 		return -1, err
 	}
 }
@@ -78,10 +73,8 @@ type fileDeployer struct{}
 
 func (_ fileDeployer) Copy(m map[string]string) error {
 	for k, v := range m {
-		logging.InfoLogger.Printf("Copying file %s to %s\n", k, v)
 		src, err := os.Open(k)
 		if err != nil {
-			logging.ErrorLogger.Println(err)
 			return err
 		}
 		defer src.Close()
@@ -89,26 +82,21 @@ func (_ fileDeployer) Copy(m map[string]string) error {
 		if _, err := os.Stat(v); errors.Is(err, os.ErrNotExist) {
 			dest, err := os.Create(v)
 			if err != nil {
-				logging.ErrorLogger.Println(err)
 				return err
 			}
 			defer dest.Close()
 
 			_, err = io.Copy(src, dest)
 			if err != nil {
-				logging.ErrorLogger.Println(err)
 				return err
 			}
 
 			err = dest.Sync()
 			if err != nil {
-				logging.ErrorLogger.Println(err)
 				return err
 			}
 
-			logging.InfoLogger.Println("File copied")
 		} else {
-			logging.ErrorLogger.Println(v + " already exists")
 			return errors.New(v + " already exists")
 		}
 	}
@@ -118,10 +106,9 @@ func (_ fileDeployer) Copy(m map[string]string) error {
 
 func (_ fileDeployer) Symlink(m map[string]string) error {
 	for k, v := range m {
-		logging.InfoLogger.Printf("Creating symlink %s to %s", v, k)
 		err := os.Symlink(k, v)
 		if err != nil {
-			logging.ErrorLogger.Println(err)
+			return err
 		}
 	}
 	return nil
