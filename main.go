@@ -59,6 +59,11 @@ func parseFlags() (f cmdFlags, err error) {
 		fmt.Println(
 			"usage: estragon [install|deploy|help] [options] [dots]",
 		)
+		fmt.Println()
+		fmt.Println("install - Install the packages of each dot")
+		fmt.Println("deploy  - Deploy the files in the dot folders")
+		fmt.Println("help    - Display this message")
+		fmt.Println()
 		fmt.Println("options:")
 		subcmdFlags.PrintDefaults()
 	}
