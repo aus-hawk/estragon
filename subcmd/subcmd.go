@@ -25,6 +25,15 @@ func NewSubcmdRunner(conf config.Config, dir string, dry bool) SubcmdRunner {
 	return SubcmdRunner{conf, dir, dry}
 }
 
+func ValidSubcmd(subcmd string) bool {
+	switch subcmd {
+	case "install", "deploy":
+		return true
+	default:
+		return false
+	}
+}
+
 func (s SubcmdRunner) RunSubCmd(subcmd string, dots []string) error {
 	switch subcmd {
 	case "install":
