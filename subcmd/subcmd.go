@@ -124,7 +124,8 @@ func (_ fileDeployer) Symlink(m map[string]string) error {
 }
 
 func (_ fileDeployer) Expand(s string) string {
-	s = strings.ReplaceAll(s, "~", "$HOME")
+	home, _ := os.UserHomeDir()
+	s = strings.ReplaceAll(s, "~", home)
 	return os.ExpandEnv(s)
 }
 
