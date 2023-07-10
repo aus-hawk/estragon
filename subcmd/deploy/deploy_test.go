@@ -173,6 +173,20 @@ func TestDeploy(t *testing.T) {
 			"",
 		},
 		{
+			`"*" is replaced by dot name`,
+			mockDotManager{
+				method: "shallow",
+				root:   "/out/root/*",
+			},
+			"/dot/root",
+			[]string{"doesnt", "matter"},
+			map[string]string{
+				f("/dot/root", "dotname"): "/out/root/dotname",
+			},
+			"symlink",
+			"",
+		},
+		{
 			`Method "shallow" with rules uses map of valid files`,
 			mockDotManager{
 				method:    "shallow",
