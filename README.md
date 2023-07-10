@@ -134,7 +134,7 @@ structures will be placed. Environment variables are processed, as well as `~`
 being expanded to `$HOME`. Environment variables should be denoted with the
 typical dollar sign shell syntax regardless of OS. If an environment variable
 does not exist, it will be treated as if it is an empty string. If the path
-contains `:`, it will replace that `:` with the name of the dotfile directory,
+contains `*`, it will replace that `*` with the name of the dotfile directory,
 which can be used to specify things like the XDG config directory if the
 directory name matches the name of its config folder.
 
@@ -146,7 +146,7 @@ dotfiles will be installed on a Unix system.
 | -------------- | ----------------- | --------------------- |
 | `"$HOME/conf"` | `$HOME/conf/a`    | `$HOME/conf/dir/b`    |
 | `"~/conf"`     | `$HOME/conf/a`    | `$HOME/conf/dir/b`    |
-| `"/conf/:"`    | `/conf/dots/a`    | `/conf/dots/dir/b`    |
+| `"/conf/*"`    | `/conf/dots/a`    | `/conf/dots/dir/b`    |
 
 ### `check-cmd` and `install-cmd`
 

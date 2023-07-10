@@ -220,7 +220,7 @@ func (d DotfileDeployer) expandResolvedPaths(
 	dot string,
 	expandPrefix bool,
 ) map[string]string {
-	outRoot := strings.Replace(conf.Root, ":", dot, 1)
+	outRoot := strings.Replace(conf.Root, "*", dot, 1)
 	dotRoot := filepath.Join(d.root, dot)
 
 	expandedPaths := make(map[string]string)
