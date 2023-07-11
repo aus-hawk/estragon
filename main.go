@@ -31,6 +31,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Printf("Using environment: %s\n\n", commandConf.env)
+
 	conf, err := getConfig(flags)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error getting config:", err)
@@ -145,8 +147,6 @@ func getCommandConfig(flags cmdFlags) (c cmdConf, err error) {
 
 		err = os.WriteFile(envFile, []byte(c.env), 0666)
 	}
-
-	fmt.Println("Using environment:", c.env)
 
 	return
 }
