@@ -65,8 +65,11 @@ func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
 		return err
 	}
 
+	expandedRoot := strings.Replace(dotConf.Root, "*", dot, 1)
+	expandedRoot = d.deployer.Expand(expandedRoot)
+
 	fmt.Println("Method:", dotConf.Method)
-	fmt.Println("Root:", dotConf.Root)
+	fmt.Printf("Root: %s (expanded from %s)\n", expandedRoot, dotConf.Root)
 	fmt.Println("Dot prefix:", dotConf.DotPrefix)
 	fmt.Println("Rules:")
 	for k, v := range dotConf.Rules {
