@@ -89,13 +89,18 @@ func (_ fileDeployer) Copy(m map[string]string) error {
 		defer src.Close()
 
 		if _, err := os.Stat(v); errors.Is(err, os.ErrNotExist) {
+			err := os.MkdirAll(filepath.Dir(v), 0777)
+			if err != nil {
+				return err
+			}
+
 			dest, err := os.Create(v)
 			if err != nil {
 				return err
 			}
 			defer dest.Close()
 
-			_, err = io.Copy(src, dest)
+			_, err = io.Copy(dest, src)
 			if err != nil {
 				return err
 			}
@@ -104,7 +109,6 @@ func (_ fileDeployer) Copy(m map[string]string) error {
 			if err != nil {
 				return err
 			}
-
 		} else {
 			return errors.New(v + " already exists")
 		}
@@ -115,7 +119,11 @@ func (_ fileDeployer) Copy(m map[string]string) error {
 
 func (_ fileDeployer) Symlink(m map[string]string) error {
 	for k, v := range m {
-		err := os.Symlink(k, v)
+		err := os.MkdirAll(filepath.Dir(v), 0777)
+		if err != nil {
+			return err
+		}
+		err = os.Symlink(k, v)
 		if err != nil {
 			return err
 		}
