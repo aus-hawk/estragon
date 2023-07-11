@@ -26,12 +26,24 @@ simple package manager wrapped all into one executable. Different dotfile
 configurations can be managed in different ways, and different programs can be
 installed with different packages in different environments.
 
+## Using Estragon
+
+Estragon requires an [environment string](#environment-string) and an
+[`estragon.yaml` configuration file](#estragonyaml-config-file-schema) in the
+directory to install your packages and dotfiles. These are covered in detail in
+their respective sections.
+
+You can run `estragon help` to get more information about the subcommands and
+the flags you can pass.
+
 ## Environment String
 
 Estragon makes decisions based off of an environment string that's passed on the
-initial run of the program. After this, the environment string can be specified
-again in the command line, but you don't have to as Estragon stores it in a file
-in the same directory as your `estragon.yaml`.
+initial run of the program with the `--env` flag. After this, the environment
+string can be specified again in the command line, but you don't have to as
+Estragon stores it in a directory in the same directory as your `estragon.yaml`.
+You can pass a new environment string at it will replace the one already
+associated with the directory.
 
 The environment string is a series of fields that are space-separated. Some
 settings in `estragon.yaml` make use of these fields to decide what values to
@@ -90,12 +102,21 @@ All lone exclamation marks after the first are ignored.
 
 For Estragon to know what to do with a directory of dotfiles, it needs to be
 configured with a file in the directory containing all of the dotfile folders
-called `estragon.yaml`.
+called `estragon.yaml`. It should be in the same directory as the one specified
+(either the current one or the one passed with the `--dir` flag).
 
 For future reference, "dotfile directory" means the same thing as "config
 directory", that is a folder containing the dotfiles to actually be installed
 for a particular program. It does _not_ refer to the directory containing the
 `estragon.yaml` file, but any directory in _that_ folder is a dotfile directory.
+
+The priority that the common configurations (`method`, `root`, and `dot-prefix`)
+have, from highest to lowest is the following:
+
+1. Dot level matching environment configuration
+1. Dot level configuration
+1. Global environment configuration
+1. Global configuration
 
 The root level configurations are defined by this table:
 
