@@ -53,6 +53,7 @@ func (p PackageInstaller) Install(dots []string, dry bool) error {
 		if err != nil {
 			return err
 		}
+		fmt.Println()
 	}
 
 	return nil
@@ -118,5 +119,6 @@ func (p PackageInstaller) dryInstall(dots []string) {
 			pkgList := strings.Join(pkg.List, " ")
 			fmt.Printf("  %s -> %s", pkg.Name, pkgList)
 		}
+		fmt.Println()
 	}
 }

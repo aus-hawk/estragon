@@ -150,6 +150,8 @@ func (s SubcmdRunner) deploySubCmd(dots []string) error {
 		if err != nil {
 			return err
 		}
+
+		fmt.Println()
 	}
 
 	return nil
