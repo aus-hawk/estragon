@@ -141,6 +141,12 @@ func initDir(argDir string) (dir string, err error) {
 		return
 	}
 
+	gitignore := filepath.Join(estragonDir, ".gitignore")
+	err = os.WriteFile(gitignore, []byte("*"), 0666)
+	if err != nil {
+		return
+	}
+
 	ownJson := filepath.Join(estragonDir, "own.json")
 	if _, err := os.Stat(ownJson); errors.Is(err, os.ErrNotExist) {
 		// Ensure that the ownership file exists and has an empty
