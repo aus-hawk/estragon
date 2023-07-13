@@ -15,9 +15,9 @@ import (
 )
 
 func main() {
-	flags, err := parseFlags()
+	args, err := parseFlags()
 	if err != nil {
-		if err != flag.ErrHelp {
+		if !errors.Is(err, flag.ErrHelp) {
 			// Passing "-h" isn't actually an error.
 			fmt.Fprintln(os.Stderr, "Error parsing flags:", err)
 			os.Exit(1)
@@ -25,36 +25,42 @@ func main() {
 		return
 	}
 
-	commandConf, err := getCommandConfig(flags)
+	dir, err := initDir(args.dir)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error parsing flags:", err)
+		fmt.Fprintln(os.Stderr, "Error initializing dir:", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Using environment: %s\n\n", commandConf.env)
+	env, err := getEnv(args.env, dir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error getting environment:", err)
+		os.Exit(1)
+	}
 
-	conf, err := getConfig(flags)
+	conf, err := getConfig(dir, env)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error getting config:", err)
 		os.Exit(1)
 	}
 
-	runner := subcmd.NewSubcmdRunner(conf, commandConf.dir, flags.dry)
+	fmt.Printf("Using environment: %s\n\n", env)
 
-	err = runner.RunSubCmd(flags.subcommand, flags.dots)
+	runner := subcmd.NewSubcmdRunner(conf, dir, args.dry)
+
+	err = runner.RunSubCmd(args.subcommand, args.dots)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(2)
 	}
 }
 
-type cmdFlags struct {
+type cmdArgs struct {
 	subcommand, dir, env string
 	dry                  bool
 	dots                 []string
 }
 
-func parseFlags() (f cmdFlags, err error) {
+func parseFlags() (args cmdArgs, err error) {
 	subcmdFlags := flag.NewFlagSet("subcommands", flag.ContinueOnError)
 	subcmdFlags.SetOutput(os.Stderr)
 	subcmdFlags.Usage = func() {
@@ -101,66 +107,70 @@ func parseFlags() (f cmdFlags, err error) {
 		return
 	}
 
-	f.subcommand = os.Args[1]
+	args.subcommand = os.Args[1]
 	err = subcmdFlags.Parse(os.Args[2:])
 	if err != nil {
 		return
 	}
 
-	f.dir = *dir
-	f.env = *env
-	f.dry = *dry
-	f.dots = subcmdFlags.Args()
+	args.dir = *dir
+	args.env = *env
+	args.dry = *dry
+	args.dots = subcmdFlags.Args()
 	return
 }
 
-type cmdConf struct {
-	dir, env string
-}
-
-func getCommandConfig(flags cmdFlags) (c cmdConf, err error) {
-	c.dir = flags.dir
-	if c.dir == "" {
-		c.dir, err = os.Getwd()
+func initDir(argDir string) (dir string, err error) {
+	dir = argDir
+	if dir == "" {
+		dir, err = os.Getwd()
 		if err != nil {
 			return
 		}
 	}
 
-	c.env = flags.env
-	estragonDir := filepath.Join(c.dir, ".estragon")
-	envFile := filepath.Join(estragonDir, "env")
-	if c.env == "" {
-		env, err := os.ReadFile(envFile)
+	estragonDir := filepath.Join(dir, ".estragon")
+
+	err = os.Mkdir(estragonDir, 0777)
+	if errors.Is(err, fs.ErrExist) {
+		err = nil
+	}
+
+	return
+}
+
+func getEnv(argEnv, dir string) (env string, err error) {
+	env = argEnv
+
+	envFile := filepath.Join(dir, ".estragon", "env")
+
+	if env == "" {
+		var envBytes []byte
+		envBytes, err = os.ReadFile(envFile)
 		if err != nil {
-			return c, errors.New(
+			err = errors.New(
 				"No -env passed or .estragon/env file in directory",
 			)
-		}
-		c.env = string(env)
-	} else {
-		// Write most recently used env to storage.
-		err = os.Mkdir(estragonDir, 0777)
-		if err != nil && !errors.Is(err, fs.ErrExist) {
 			return
 		}
-
-		err = os.WriteFile(envFile, []byte(c.env), 0666)
+		env = string(envBytes)
+	} else {
+		err = os.WriteFile(envFile, []byte(env), 0666)
 	}
 
 	return
 }
 
-func getConfig(flags cmdFlags) (conf config.Config, err error) {
-	confFile := filepath.Join(flags.dir, "estragon.yaml")
+func getConfig(dir, envString string) (conf config.Config, err error) {
+	confFile := filepath.Join(dir, "estragon.yaml")
 
 	f, err := os.ReadFile(confFile)
 	if err != nil {
 		return
 	}
 
-	env := env.NewEnvironment(flags.env)
-	conf, err = config.NewConfig(f, env)
+	environment := env.NewEnvironment(envString)
+	conf, err = config.NewConfig(f, environment)
 
 	return
 }
