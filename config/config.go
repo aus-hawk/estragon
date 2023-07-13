@@ -143,12 +143,10 @@ type DotConfig struct {
 }
 
 // Get the DotConfig associated with a specific dot. If the dot does not exist
-// in the config, a non-nil error is the second returned value.
-func (c Config) DotConfig(dotName string) (d DotConfig, err error) {
-	dot, ok := c.schema.Dots[dotName]
-	if !ok {
-		return d, errors.New("Dot " + dotName + " not in config")
-	}
+// in the config, it has all of the globally specified defaults.
+func (c Config) DotConfig(dotName string) (d DotConfig) {
+	// The zero value is fine to use.
+	dot := c.schema.Dots[dotName]
 
 	// Rules are only set in one place.
 	key, _ := c.selector.Select(mapKeys(dot.Rules))
@@ -181,7 +179,7 @@ func (c Config) DotConfig(dotName string) (d DotConfig, err error) {
 		d.DotPrefix = true
 	}
 
-	return d, nil
+	return
 }
 
 func applyCommonDotConfig(c common, d DotConfig) DotConfig {

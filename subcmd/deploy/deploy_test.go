@@ -60,16 +60,12 @@ type mockDotManager struct {
 	rules     map[string]string
 }
 
-func (d mockDotManager) DotConfig(string) (config.DotConfig, error) {
-	if d.shouldErr {
-		return config.DotConfig{}, errors.New("DotConfig error")
-	} else {
-		return config.DotConfig{
-			Method:    d.method,
-			Root:      d.root,
-			DotPrefix: d.dotPrefix,
-			Rules:     d.rules,
-		}, nil
+func (d mockDotManager) DotConfig(string) config.DotConfig {
+	return config.DotConfig{
+		Method:    d.method,
+		Root:      d.root,
+		DotPrefix: d.dotPrefix,
+		Rules:     d.rules,
 	}
 }
 
@@ -92,17 +88,6 @@ func TestDeploy(t *testing.T) {
 		expectedMethod string
 		err            string
 	}{
-		{
-			"Bad dotname",
-			mockDotManager{
-				shouldErr: true,
-			},
-			"/dot/root",
-			[]string{"doesnt", "matter"},
-			nil,
-			"",
-			"DotConfig error",
-		},
 		{
 			"Bad method",
 			mockDotManager{

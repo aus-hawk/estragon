@@ -10,7 +10,7 @@ import (
 )
 
 type DotManager interface {
-	DotConfig(string) (config.DotConfig, error)
+	DotConfig(string) config.DotConfig
 }
 
 type FileDeployer interface {
@@ -42,10 +42,7 @@ func NewDotfileDeployer(
 // dot directory. dry determines if an action is actually performed (true) or if
 // it will just be simulated by printing out what would actually happen (false).
 func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
-	dotConf, err := d.mgr.DotConfig(dot)
-	if err != nil {
-		return err
-	}
+	dotConf := d.mgr.DotConfig(dot)
 
 	var fileMap map[string]string
 
@@ -58,10 +55,10 @@ func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
 		fileMap = d.shallowResolve(dotConf, files, dot)
 	default:
 		if method != "none" {
-			errMsg := fmt.Sprintf("%s is not a valid method", method)
-			err = errors.New(errMsg)
+			return errors.New(method + " is not a valid method")
+		} else {
+			return nil
 		}
-		return err
 	}
 
 	expandedRoot := d.deployer.Expand(dotConf.Root, dot)
@@ -81,7 +78,7 @@ func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
 			fmt.Printf("  %s -> %s\n", link, dotfile)
 		}
 		if !dry {
-			err = d.deployer.Symlink(fileMap, dot)
+			return d.deployer.Symlink(fileMap, dot)
 		}
 	case "copy":
 		fmt.Println("Copying the following files (original -> copy):")
@@ -89,11 +86,11 @@ func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
 			fmt.Printf("  %s -> %s\n", dotfile, copyFile)
 		}
 		if !dry {
-			err = d.deployer.Copy(fileMap, dot)
+			return d.deployer.Copy(fileMap, dot)
 		}
 	}
 
-	return err
+	return nil
 }
 
 func (d DotfileDeployer) deepCopyResolve(

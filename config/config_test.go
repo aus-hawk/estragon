@@ -300,6 +300,30 @@ func TestDotConfigRealDotfile(t *testing.T) {
 				Rules:        nil,
 			},
 		},
+		{
+			"Nonexistant dot falls back to global config",
+			"no matching env",
+			"bad-dot",
+			DotConfig{
+				Method:       "deep",
+				Root:         "xdg",
+				DotPrefix:    true,
+				dotPrefixSet: false,
+				Rules:        nil,
+			},
+		},
+		{
+			"Nonexistant dot falls back to global and env config",
+			"test",
+			"bad-dot",
+			DotConfig{
+				Method:       "shallow",
+				Root:         "home",
+				DotPrefix:    false,
+				dotPrefixSet: true,
+				Rules:        nil,
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
@@ -307,10 +331,7 @@ func TestDotConfigRealDotfile(t *testing.T) {
 				goodSchema,
 				mockEnvSelector{test.env, nil},
 			}
-			dotConf, err := config.DotConfig(test.dotName)
-			if err != nil {
-				t.Fatal("expected err to be nil, got non-nil")
-			}
+			dotConf := config.DotConfig(test.dotName)
 
 			if !reflect.DeepEqual(test.dotConf, dotConf) {
 				t.Fatalf(
