@@ -74,11 +74,10 @@ func (s SubcmdRunner) installSubcmd(dots []string) error {
 func runCmd(args []string) (int, error) {
 	cmd := exec.Command(args[0], args[1:]...)
 	err := cmd.Run()
-	if err != nil {
+	if err == nil {
+		// Run was normal and successful.
 		return 0, nil
-	}
-
-	if exitError, ok := err.(*exec.ExitError); ok {
+	} else if exitError, ok := err.(*exec.ExitError); ok {
 		// Ignore the error, only use it for the exit code.
 		exitCode := exitError.ExitCode()
 		return exitCode, nil
