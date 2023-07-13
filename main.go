@@ -47,7 +47,7 @@ func main() {
 
 	runner := subcmd.NewSubcmdRunner(conf, dir, args.dry)
 
-	err = runner.RunSubCmd(args.subcommand, args.dots)
+	err = runner.RunSubcmd(args.subcommand, args.dots)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(2)
@@ -65,12 +65,15 @@ func parseFlags() (args cmdArgs, err error) {
 	subcmdFlags.SetOutput(os.Stderr)
 	subcmdFlags.Usage = func() {
 		fmt.Println(
-			"usage: estragon [install|deploy|help] [options] [dots]",
+			"usage: estragon [subcommand] [options] [dots]",
 		)
 		fmt.Println()
-		fmt.Println("install - Install the packages of each dot")
-		fmt.Println("deploy  - Deploy the files in the dot folders")
-		fmt.Println("help    - Display this message")
+		fmt.Println("subcommands:")
+		fmt.Println("  install  - Install the packages of each dot")
+		fmt.Println("  deploy   - Deploy the files in the dot folders")
+		fmt.Println("  undeploy - Delete files that were previously deployed")
+		fmt.Println("  redeploy - Undeploy, then deploy each dot")
+		fmt.Println("  help     - Display this message")
 		fmt.Println()
 		fmt.Println("options:")
 		subcmdFlags.PrintDefaults()
@@ -134,6 +137,17 @@ func initDir(argDir string) (dir string, err error) {
 	err = os.Mkdir(estragonDir, 0777)
 	if errors.Is(err, fs.ErrExist) {
 		err = nil
+	} else if err != nil {
+		return
+	}
+
+	ownJson := filepath.Join(estragonDir, "own.json")
+	if _, err := os.Stat(ownJson); errors.Is(err, os.ErrNotExist) {
+		// Ensure that the ownership file exists and has an empty
+		// object.
+		err = os.WriteFile(ownJson, []byte("{}"), 0666)
+	} else if err != nil {
+		return dir, err
 	}
 
 	return

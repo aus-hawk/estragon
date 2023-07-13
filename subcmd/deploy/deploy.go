@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
-	"strings"
 
 	"github.com/aus-hawk/estragon/config"
 )
@@ -15,9 +14,9 @@ type DotManager interface {
 }
 
 type FileDeployer interface {
-	Copy(map[string]string) error
-	Symlink(map[string]string) error
-	Expand(string) string
+	Copy(fileMap map[string]string, dot string) error
+	Symlink(fileMap map[string]string, dot string) error
+	Expand(path string, dot string) string
 }
 
 type DotfileDeployer struct {
@@ -65,8 +64,7 @@ func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
 		return err
 	}
 
-	expandedRoot := strings.Replace(dotConf.Root, "*", dot, 1)
-	expandedRoot = d.deployer.Expand(expandedRoot)
+	expandedRoot := d.deployer.Expand(dotConf.Root, dot)
 
 	fmt.Println("Method:", dotConf.Method)
 	fmt.Printf("Root: %s (expanded from %s)\n", expandedRoot, dotConf.Root)
@@ -83,7 +81,7 @@ func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
 			fmt.Printf("  %s -> %s\n", link, dotfile)
 		}
 		if !dry {
-			err = d.deployer.Symlink(fileMap)
+			err = d.deployer.Symlink(fileMap, dot)
 		}
 	case "copy":
 		fmt.Println("Copying the following files (original -> copy):")
@@ -91,7 +89,7 @@ func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
 			fmt.Printf("  %s -> %s\n", dotfile, copyFile)
 		}
 		if !dry {
-			err = d.deployer.Copy(fileMap)
+			err = d.deployer.Copy(fileMap, dot)
 		}
 	}
 
@@ -204,14 +202,6 @@ func splitSubdirRule(file string, rules map[string]string) (string, string, bool
 	return dir, subpath, ok
 }
 
-var dotPrefixRegexp *regexp.Regexp = regexp.MustCompile("(^|/)dot-")
-
-// expandDotPrefix takes a path and replaces the "dot-" prefix of every part
-// with a lone dot (".").
-func expandDotPrefixes(path string) string {
-	return dotPrefixRegexp.ReplaceAllString(path, "${1}.")
-}
-
 // expandResolvedPaths takes a fileMap and returns that map with full paths and
 // expanded environment variables.
 //
@@ -223,7 +213,7 @@ func (d DotfileDeployer) expandResolvedPaths(
 	dot string,
 	expandPrefix bool,
 ) map[string]string {
-	outRoot := strings.Replace(conf.Root, "*", dot, 1)
+	outRoot := conf.Root
 	dotRoot := filepath.Join(d.root, dot)
 
 	expandedPaths := make(map[string]string)
@@ -238,10 +228,18 @@ func (d DotfileDeployer) expandResolvedPaths(
 		}
 		file = filepath.Join(dotRoot, file)
 
-		file = d.deployer.Expand(file)
-		outFile = d.deployer.Expand(outFile)
+		file = d.deployer.Expand(file, dot)
+		outFile = d.deployer.Expand(outFile, dot)
 		expandedPaths[file] = outFile
 	}
 
 	return expandedPaths
+}
+
+var dotPrefixRegexp *regexp.Regexp = regexp.MustCompile("(^|/)dot-")
+
+// expandDotPrefix takes a path and replaces the "dot-" prefix of every part
+// with a lone dot (".").
+func expandDotPrefixes(path string) string {
+	return dotPrefixRegexp.ReplaceAllString(path, "${1}.")
 }
