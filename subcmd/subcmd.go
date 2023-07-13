@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,26 +28,34 @@ func NewSubcmdRunner(conf config.Config, dir string, dry bool) SubcmdRunner {
 
 func ValidSubcmd(subcmd string) bool {
 	switch subcmd {
-	case "install", "deploy":
+	case "install", "deploy", "undeploy", "redeploy":
 		return true
 	default:
 		return false
 	}
 }
 
-func (s SubcmdRunner) RunSubCmd(subcmd string, dots []string) error {
+func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 	switch subcmd {
 	case "install":
-		return s.installSubCmd(dots)
+		return s.installSubcmd(dots)
 	case "deploy":
-		return s.deploySubCmd(dots)
+		return s.deploySubcmd(dots)
+	case "undeploy":
+		return s.undeploySubcmd(dots)
+	case "redeploy":
+		err := s.undeploySubcmd(dots)
+		if err != nil {
+			return err
+		}
+		return s.deploySubcmd(dots)
 	default:
 		errMsg := fmt.Sprintf(`"%s" is not a valid subcommand`, subcmd)
 		return errors.New(errMsg)
 	}
 }
 
-func (s SubcmdRunner) installSubCmd(dots []string) error {
+func (s SubcmdRunner) installSubcmd(dots []string) error {
 	checkCmd := s.conf.CheckCmd()
 	if len(checkCmd) == 0 {
 		return errors.New("No matching non-empty check-cmd for environment")
@@ -78,67 +87,9 @@ func runCmd(args []string) (int, error) {
 	}
 }
 
-type fileDeployer struct{}
-
-func (_ fileDeployer) Copy(m map[string]string) error {
-	for k, v := range m {
-		src, err := os.Open(k)
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-
-		if _, err := os.Stat(v); errors.Is(err, os.ErrNotExist) {
-			err := os.MkdirAll(filepath.Dir(v), 0777)
-			if err != nil {
-				return err
-			}
-
-			dest, err := os.Create(v)
-			if err != nil {
-				return err
-			}
-			defer dest.Close()
-
-			_, err = io.Copy(dest, src)
-			if err != nil {
-				return err
-			}
-
-			err = dest.Sync()
-			if err != nil {
-				return err
-			}
-		} else {
-			return errors.New(v + " already exists")
-		}
-	}
-
-	return nil
-}
-
-func (_ fileDeployer) Symlink(m map[string]string) error {
-	for k, v := range m {
-		err := os.MkdirAll(filepath.Dir(v), 0777)
-		if err != nil {
-			return err
-		}
-		err = os.Symlink(k, v)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (_ fileDeployer) Expand(s string) string {
-	home, _ := os.UserHomeDir()
-	s = strings.ReplaceAll(s, "~", home)
-	return os.ExpandEnv(s)
-}
-
-func (s SubcmdRunner) deploySubCmd(dots []string) error {
-	deployer := deploy.NewDotfileDeployer(s.conf, fileDeployer{}, s.dir)
+func (s SubcmdRunner) deploySubcmd(dots []string) error {
+	own := filepath.Join(s.dir, ".estragon", "own.json")
+	deployer := deploy.NewDotfileDeployer(s.conf, fileDeployer{own}, s.dir)
 
 	for _, dot := range dots {
 		files, err := s.dirFiles(dot)
@@ -180,4 +131,192 @@ func (s SubcmdRunner) dirFiles(dot string) ([]string, error) {
 
 	err := filepath.WalkDir(dotDir, walkFunc)
 	return files, err
+}
+
+type fileDeployer struct {
+	ownJson string
+}
+
+func (d fileDeployer) Copy(m map[string]string, dot string) error {
+	err := d.ensureOwnership(m, dot)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range m {
+		src, err := os.Open(k)
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+
+		err = os.MkdirAll(filepath.Dir(v), 0777)
+		if err != nil {
+			return err
+		}
+
+		dest, err := os.Create(v)
+		if err != nil {
+			return err
+		}
+		defer dest.Close()
+
+		_, err = io.Copy(dest, src)
+		if err != nil {
+			return err
+		}
+
+		err = dest.Sync()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d fileDeployer) Symlink(m map[string]string, dot string) error {
+	err := d.ensureOwnership(m, dot)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range m {
+		err := os.MkdirAll(filepath.Dir(v), 0777)
+		if err != nil {
+			return err
+		}
+		err = os.Symlink(k, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (_ fileDeployer) Expand(s string, dot string) string {
+	home, _ := os.UserHomeDir()
+	s = strings.ReplaceAll(s, "~", home)
+	s = strings.ReplaceAll(s, "*", dot)
+	return os.ExpandEnv(s)
+}
+
+func (d fileDeployer) ensureOwnership(m map[string]string, dot string) error {
+	data, err := os.ReadFile(d.ownJson)
+	if err != nil {
+		return err
+	}
+
+	var dotOwn map[string][]string
+	err = json.Unmarshal(data, &dotOwn)
+	if err != nil {
+		return errors.New(
+			"Error unmarshalling own.json file: " + err.Error(),
+		)
+	}
+
+	ownedFileList := dotOwn[dot]
+	ownedFiles := make(map[string]struct{})
+	for _, file := range ownedFileList {
+		ownedFiles[file] = struct{}{}
+	}
+
+	outFiles := make([]string, 0, len(m))
+	for _, v := range m {
+		outFiles = append(outFiles, v)
+	}
+
+	for _, file := range outFiles {
+		_, ok := ownedFiles[file]
+		if !ok {
+			// File is not owned.
+			if _, err := os.Stat(file); err == nil {
+				return errors.New(
+					file + " exists and is not owned by this directory",
+				)
+			} else if errors.Is(err, os.ErrNotExist) {
+				// File does not exist and is not owned. Take
+				// ownership.
+				ownedFileList = append(ownedFileList, file)
+			} else {
+				return err
+			}
+		}
+	}
+
+	dotOwn[dot] = ownedFileList
+
+	data, err = json.Marshal(dotOwn)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(d.ownJson, data, 0666)
+
+	return err
+}
+
+func (s SubcmdRunner) undeploySubcmd(dots []string) error {
+	// TODO output and make use of s.dry.
+	ownJson := filepath.Join(s.dir, ".estragon", "own.json")
+
+	data, err := os.ReadFile(ownJson)
+	if err != nil {
+		return err
+	}
+
+	var dotOwn map[string][]string
+	err = json.Unmarshal(data, &dotOwn)
+	if err != nil {
+		return err
+	}
+
+	for _, dot := range dots {
+		owned, ok := dotOwn[dot]
+		if ok {
+			for _, file := range owned {
+				err = os.Remove(file)
+				if err != nil {
+					return err
+				}
+
+				err = removeEmptyParents(file)
+				if err != nil {
+					return err
+				}
+			}
+			delete(dotOwn, dot)
+		}
+	}
+
+	data, err = json.Marshal(dotOwn)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(ownJson, data, 0666)
+
+	return err
+}
+
+func removeEmptyParents(file string) error {
+	dir := filepath.Dir(file)
+	for dir != "." {
+		dirFile, err := os.Open(dir)
+		if err != nil {
+			return err
+		}
+		defer dirFile.Close()
+
+		_, err = dirFile.Readdirnames(1)
+		if errors.Is(err, io.EOF) {
+			// Folder is empty.
+			os.Remove(dir)
+		} else {
+			return err
+		}
+
+		dir = filepath.Dir(dir)
+	}
+	return nil
 }

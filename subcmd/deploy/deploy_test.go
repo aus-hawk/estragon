@@ -30,21 +30,21 @@ func (d mockFileDeployer) testExpectedMap(m map[string]string) error {
 	return nil
 }
 
-func (d mockFileDeployer) Copy(m map[string]string) error {
+func (d mockFileDeployer) Copy(m map[string]string, dot string) error {
 	if d.expectedMethod != "copy" {
 		d.t.Error("copy called when it shouldn't have")
 	}
 	return d.testExpectedMap(m)
 }
 
-func (d mockFileDeployer) Symlink(m map[string]string) error {
+func (d mockFileDeployer) Symlink(m map[string]string, dot string) error {
 	if d.expectedMethod != "symlink" {
 		d.t.Error("symlink called when it shouldn't have")
 	}
 	return d.testExpectedMap(m)
 }
 
-func (d mockFileDeployer) Expand(s string) string {
+func (d mockFileDeployer) Expand(s string, dot string) string {
 	return s
 }
 
@@ -168,20 +168,6 @@ func TestDeploy(t *testing.T) {
 			[]string{"doesnt", "matter"},
 			map[string]string{
 				f("/dot/root", "dotname"): "/out/root",
-			},
-			"symlink",
-			"",
-		},
-		{
-			`"*" is replaced by dot name`,
-			mockDotManager{
-				method: "shallow",
-				root:   "/out/root/*",
-			},
-			"/dot/root",
-			[]string{"doesnt", "matter"},
-			map[string]string{
-				f("/dot/root", "dotname"): "/out/root/dotname",
 			},
 			"symlink",
 			"",
