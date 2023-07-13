@@ -110,14 +110,14 @@ func (p PackageInstaller) installPackage(pkg string) error {
 
 func (p PackageInstaller) dryInstall(dots []string) {
 	for _, dot := range dots {
-		fmt.Printf("Packages for dot %s and their expansions:", dot)
+		fmt.Printf("Packages for dot %s and their expansions:\n", dot)
 		pkgs, err := p.mgr.Packages(dot)
 		if err != nil {
 			fmt.Println(err)
 		}
 		for _, pkg := range pkgs {
 			pkgList := strings.Join(pkg.List, " ")
-			fmt.Printf("  %s -> %s", pkg.Name, pkgList)
+			fmt.Printf("  %s -> %s\n", pkg.Name, pkgList)
 		}
 		fmt.Println()
 	}
