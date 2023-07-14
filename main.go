@@ -139,6 +139,26 @@ func initDir(argDir string) (dir string, err error) {
 		}
 	}
 
+	for dir != filepath.Dir(dir) {
+		estragonYaml := filepath.Join(dir, "estragon.yaml")
+		if _, err := os.Stat(estragonYaml); errors.Is(err, os.ErrNotExist) {
+			dir = filepath.Dir(dir)
+		} else if err != nil {
+			return dir, err
+		} else {
+			// Found the file.
+			break
+		}
+	}
+
+	estragonYaml := filepath.Join(dir, "estragon.yaml")
+	if _, err := os.Stat(estragonYaml); errors.Is(err, os.ErrNotExist) {
+		err = errors.New("No estragon.yaml file in directory or parents")
+		return dir, err
+	} else if err != nil {
+		return dir, err
+	}
+
 	estragonDir := filepath.Join(dir, ".estragon")
 
 	err = os.Mkdir(estragonDir, 0777)
@@ -146,16 +166,6 @@ func initDir(argDir string) (dir string, err error) {
 		err = nil
 	} else if err != nil {
 		return
-	}
-
-	// .estragon does not exist.
-	estragonYaml := filepath.Join(dir, "estragon.yaml")
-	if _, err := os.Stat(estragonYaml); errors.Is(err, os.ErrNotExist) {
-		// This is not an Estragon directory.
-		err = errors.New("No estragon.yaml file in directory")
-		return dir, err
-	} else if err != nil {
-		return dir, err
 	}
 
 	gitignore := filepath.Join(estragonDir, ".gitignore")
