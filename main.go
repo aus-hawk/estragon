@@ -132,11 +132,15 @@ func parseFlags() (args cmdArgs, err error) {
 
 func initDir(argDir string) (dir string, err error) {
 	dir = argDir
+	wd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
 	if dir == "" {
-		dir, err = os.Getwd()
-		if err != nil {
-			return
-		}
+		dir = wd
+	} else if filepath.IsLocal(dir) {
+		dir = filepath.Join(wd, dir)
 	}
 
 	for dir != filepath.Dir(dir) {
