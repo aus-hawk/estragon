@@ -40,6 +40,10 @@ dots:
   commonless:
     packages:
       quux: "I don't know but it sounds important"
+  templated:
+    rules:
+      "template-(.*)":
+        "file-$1": "/outfile"
 `
 
 var goodSchema = schema{
@@ -87,6 +91,13 @@ var goodSchema = schema{
 		"commonless": {
 			Packages: map[string]string{
 				"quux": "I don't know but it sounds important",
+			},
+		},
+		"templated": {
+			Rules: map[string]map[string]string{
+				"template-(.*)": {
+					"file-$1": "/outfile",
+				},
 			},
 		},
 	},
@@ -246,13 +257,13 @@ func TestPackagesBadDotfile(t *testing.T) {
 func TestDotConfigRealDotfile(t *testing.T) {
 	tests := []struct {
 		desc    string
-		env     string
+		env     mockEnvSelector
 		dotName string
 		dotConf DotConfig
 	}{
 		{
 			"test env with dotfile dot",
-			"test",
+			mockEnvSelector{"test", []string{"test"}},
 			"dotfile",
 			DotConfig{
 				Method:       "copy",
@@ -266,7 +277,7 @@ func TestDotConfigRealDotfile(t *testing.T) {
 		},
 		{
 			"No env with dotfile dot",
-			"not matching",
+			mockEnvSelector{"bad-key", []string{}},
 			"dotfile",
 			DotConfig{
 				Method:       "copy",
@@ -278,7 +289,7 @@ func TestDotConfigRealDotfile(t *testing.T) {
 		},
 		{
 			"test env with commonless dot",
-			"test",
+			mockEnvSelector{"test", []string{"test"}},
 			"commonless",
 			DotConfig{
 				Method:       "shallow",
@@ -290,7 +301,7 @@ func TestDotConfigRealDotfile(t *testing.T) {
 		},
 		{
 			"No env with commonless dot",
-			"not matching",
+			mockEnvSelector{"bad-key", []string{}},
 			"commonless",
 			DotConfig{
 				Method:       "deep",
@@ -301,20 +312,22 @@ func TestDotConfigRealDotfile(t *testing.T) {
 			},
 		},
 		{
-			"Nonexistant dot falls back to global config",
-			"no matching env",
-			"bad-dot",
+			"Dot with templated rules",
+			mockEnvSelector{"template-(.*)", []string{"template-xyz"}},
+			"templated",
 			DotConfig{
 				Method:       "deep",
 				Root:         "xdg",
 				DotPrefix:    true,
 				dotPrefixSet: false,
-				Rules:        nil,
+				Rules: map[string]string{
+					"file-xyz": "/outfile",
+				},
 			},
 		},
 		{
 			"Nonexistant dot falls back to global and env config",
-			"test",
+			mockEnvSelector{"test", []string{"test"}},
 			"bad-dot",
 			DotConfig{
 				Method:       "shallow",
@@ -324,13 +337,22 @@ func TestDotConfigRealDotfile(t *testing.T) {
 				Rules:        nil,
 			},
 		},
+		{
+			"Nonexistant dot falls back to global config",
+			mockEnvSelector{"non-existant key", []string{}},
+			"bad-dot",
+			DotConfig{
+				Method:       "deep",
+				Root:         "xdg",
+				DotPrefix:    true,
+				dotPrefixSet: false,
+				Rules:        nil,
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			config := Config{
-				goodSchema,
-				mockEnvSelector{test.env, nil},
-			}
+			config := Config{goodSchema, test.env}
 			dotConf := config.DotConfig(test.dotName)
 
 			if !reflect.DeepEqual(test.dotConf, dotConf) {
