@@ -17,13 +17,13 @@ import (
 )
 
 type SubcmdRunner struct {
-	conf config.Config
-	dir  string
-	dry  bool
+	conf       config.Config
+	dir        string
+	dry, force bool
 }
 
-func NewSubcmdRunner(conf config.Config, dir string, dry bool) SubcmdRunner {
-	return SubcmdRunner{conf, dir, dry}
+func NewSubcmdRunner(conf config.Config, dir string, dry, force bool) SubcmdRunner {
+	return SubcmdRunner{conf, dir, dry, force}
 }
 
 func ValidSubcmd(subcmd string) bool {
@@ -89,7 +89,12 @@ func runCmd(args []string) (int, error) {
 
 func (s SubcmdRunner) deploySubcmd(dots []string) error {
 	own := filepath.Join(s.dir, ".estragon", "own.json")
-	deployer := deploy.NewDotfileDeployer(s.conf, fileDeployer{own}, s.dir, runCmd)
+	deployer := deploy.NewDotfileDeployer(
+		s.conf,
+		fileDeployer{own, s.force},
+		s.dir,
+		runCmd,
+	)
 
 	for _, dot := range dots {
 		files, err := s.dirFiles(dot)
@@ -135,6 +140,7 @@ func (s SubcmdRunner) dirFiles(dot string) ([]string, error) {
 
 type fileDeployer struct {
 	ownJson string
+	force   bool
 }
 
 func (d fileDeployer) Copy(m map[string]string, dot string) error {
@@ -231,9 +237,18 @@ func (d fileDeployer) ensureOwnership(m map[string]string, dot string) error {
 		if !ok {
 			// File is not owned.
 			if _, err := os.Stat(file); err == nil {
-				return errors.New(
-					file + " exists and is not owned by this directory",
-				)
+				if d.force {
+					// Delete the file/folder before any
+					// attempts to link/copy.
+					err := os.RemoveAll(file)
+					if err != nil {
+						return err
+					}
+				} else {
+					return errors.New(
+						file + " exists but is not owned by this directory",
+					)
+				}
 			} else if errors.Is(err, os.ErrNotExist) {
 				// File does not exist and is not owned. Take
 				// ownership.
