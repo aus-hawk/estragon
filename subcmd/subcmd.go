@@ -48,6 +48,7 @@ func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 		if err != nil {
 			return err
 		}
+		fmt.Println()
 		return s.deploySubcmd(dots)
 	default:
 		errMsg := fmt.Sprintf(`"%s" is not a valid subcommand`, subcmd)
@@ -256,7 +257,6 @@ func (d fileDeployer) ensureOwnership(m map[string]string, dot string) error {
 }
 
 func (s SubcmdRunner) undeploySubcmd(dots []string) error {
-	// TODO output and make use of s.dry.
 	ownJson := filepath.Join(s.dir, ".estragon", "own.json")
 
 	data, err := os.ReadFile(ownJson)
@@ -274,18 +274,27 @@ func (s SubcmdRunner) undeploySubcmd(dots []string) error {
 		owned, ok := dotOwn[dot]
 		if ok {
 			for _, file := range owned {
-				err = os.Remove(file)
-				if err != nil {
-					return err
-				}
+				fmt.Println("Removing file " + file)
+				if !s.dry {
+					err = os.Remove(file)
+					if err != nil {
+						return err
+					}
 
-				err = removeEmptyParents(file)
-				if err != nil {
-					return err
+					err = removeEmptyParents(file)
+					if err != nil {
+						return err
+					}
 				}
 			}
 			delete(dotOwn, dot)
 		}
+	}
+
+	if s.dry {
+		fmt.Println()
+		fmt.Println("Directories that would be empty after these removals")
+		fmt.Println("as well as their parents will also be removed")
 	}
 
 	data, err = json.Marshal(dotOwn)
@@ -293,7 +302,9 @@ func (s SubcmdRunner) undeploySubcmd(dots []string) error {
 		return err
 	}
 
-	err = os.WriteFile(ownJson, data, 0666)
+	if !s.dry {
+		err = os.WriteFile(ownJson, data, 0666)
+	}
 
 	return err
 }
@@ -310,7 +321,11 @@ func removeEmptyParents(file string) error {
 		_, err = dirFile.Readdirnames(1)
 		if errors.Is(err, io.EOF) {
 			// Folder is empty.
-			os.Remove(dir)
+			fmt.Println("Removing empty directory " + dir)
+			err = os.Remove(dir)
+			if err != nil {
+				return err
+			}
 		} else {
 			return err
 		}
