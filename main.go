@@ -148,6 +148,16 @@ func initDir(argDir string) (dir string, err error) {
 		return
 	}
 
+	// .estragon does not exist.
+	estragonYaml := filepath.Join(dir, "estragon.yaml")
+	if _, err := os.Stat(estragonYaml); errors.Is(err, os.ErrNotExist) {
+		// This is not an Estragon directory.
+		err = errors.New("No estragon.yaml file in directory")
+		return dir, err
+	} else if err != nil {
+		return dir, err
+	}
+
 	gitignore := filepath.Join(estragonDir, ".gitignore")
 	err = os.WriteFile(gitignore, []byte("*"), 0666)
 	if err != nil {
