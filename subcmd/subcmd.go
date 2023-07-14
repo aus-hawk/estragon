@@ -233,30 +233,31 @@ func (d fileDeployer) ensureOwnership(m map[string]string, dot string) error {
 	}
 
 	for _, file := range outFiles {
-		_, ok := ownedFiles[file]
-		if !ok {
-			// File is not owned.
-			if _, err := os.Stat(file); err == nil {
-				if d.force {
-					// Delete the file/folder before any
-					// attempts to link/copy.
-					err := os.RemoveAll(file)
-					if err != nil {
-						return err
-					}
-				} else {
-					return errors.New(
-						file + " exists but is not owned by this directory",
-					)
-				}
-			} else if errors.Is(err, os.ErrNotExist) {
-				// File does not exist and is not owned. Take
-				// ownership.
-				ownedFileList = append(ownedFileList, file)
-			} else {
+		var fileExists bool
+		if _, err := os.Stat(file); err == nil {
+			fileExists = true
+		} else if errors.Is(err, os.ErrNotExist) {
+			fileExists = false
+		} else {
+			return err
+		}
+
+		if d.force && fileExists {
+			err := os.RemoveAll(file)
+			if err != nil {
 				return err
 			}
+			fileExists = false
 		}
+
+		_, owned := ownedFiles[file]
+		if fileExists && !owned {
+			return errors.New(
+				file + " exists but is not owned by this directory",
+			)
+		}
+
+		ownedFileList = append(ownedFileList, file)
 	}
 
 	dotOwn[dot] = ownedFileList
