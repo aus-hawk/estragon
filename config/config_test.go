@@ -44,6 +44,11 @@ dots:
     rules:
       "template-(.*)":
         "file-$1": "/outfile"
+  deployable:
+    deploy:
+      test:
+        - ["command", "one"]
+        - ["cmd", "$TWO"]
 `
 
 var goodSchema = schema{
@@ -100,6 +105,14 @@ var goodSchema = schema{
 				},
 			},
 		},
+		"deployable": {
+			Deploy: map[string][][]string{
+				"test": {
+					{"command", "one"},
+					{"cmd", "$TWO"},
+				},
+			},
+		},
 	},
 }
 
@@ -136,7 +149,7 @@ func TestNewConfig(t *testing.T) {
 			c, err := NewConfig([]byte(test.in), mockEnvSelector{})
 
 			if err != nil && !test.err {
-				t.Fatal("expected err to be nil, was non-nil")
+				t.Fatal("expected err to be nil, was " + err.Error())
 			} else if err == nil && test.err {
 				t.Fatal("expected err to be non-nil, was nil")
 			} else if err != nil {
@@ -347,6 +360,22 @@ func TestDotConfigRealDotfile(t *testing.T) {
 				DotPrefix:    true,
 				dotPrefixSet: false,
 				Rules:        nil,
+			},
+		},
+		{
+			"Deployable dot has deploy populated",
+			mockEnvSelector{"test", []string{"test"}},
+			"deployable",
+			DotConfig{
+				Method:       "shallow",
+				Root:         "home",
+				DotPrefix:    false,
+				dotPrefixSet: true,
+				Rules:        nil,
+				Deploy: [][]string{
+					{"command", "one"},
+					{"cmd", "$TWO"},
+				},
 			},
 		},
 	}

@@ -20,6 +20,7 @@ type dot struct {
 	Common       common `yaml:",inline"`
 	Environments map[string]common
 	Rules        map[string]map[string]string
+	Deploy       map[string][][]string
 	Packages     map[string]string
 }
 
@@ -140,6 +141,7 @@ type DotConfig struct {
 	DotPrefix    bool
 	dotPrefixSet bool
 	Rules        map[string]string
+	Deploy       [][]string
 }
 
 // Get the DotConfig associated with a specific dot. If the dot does not exist
@@ -159,6 +161,13 @@ func (c Config) DotConfig(dotName string) (d DotConfig) {
 			templatedRules[k] = v
 		}
 		d.Rules = templatedRules
+	}
+
+	// Deploy commands are also only set in one place.
+	key, _ = c.selector.Select(mapKeys(dot.Deploy))
+	envDeploy, ok := dot.Deploy[key]
+	if ok {
+		d.Deploy = envDeploy
 	}
 
 	// Apply common config from dot-specific environment settings.

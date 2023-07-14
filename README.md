@@ -287,6 +287,7 @@ overrides that setting. A dot configuration is defined by this table:
 | `dot-prefix`   | See [`dot-prefix`](#dot-prefix)     |
 | `environments` | See [`environments`](#environments) |
 | `rules`        | A [rule configuration map](#rules)  |
+| `deploy`       | A [custom deploy process](#deploy)  |
 | `packages`     | A [dot package map](#dot-packages)  |
 
 #### `rules`
@@ -358,6 +359,30 @@ folder that exists in the Estragon root:
 1. If none of the previous conditions are true, then `f.txt` will be placed
    relative to the specified root. For example, if it was `"home"`, then the
    output file would be `"$HOME/dir/ect/f.txt"`.
+
+#### `deploy`
+
+There are cases where a specific series commands need to be run in order for a
+configuration to be installed properly and simply deploying the files isn't
+enough. For example, it's possible that a command needs to be run to install a
+crontab file for a specific user.
+
+The `deploy` field maps environments to a series of commands to be run in order.
+The commands are arrays of strings in the same way that the `check-cmd` and
+`install-cmd` are. All instances of `~` are replaced with the home directory,
+all instances of `*` with the dot name, and all environment variables are
+replaced with their values. These commands are run when a dot is _deployed_, not
+when it's _installed_.
+
+For example:
+
+```yaml
+deploy:
+  arch:
+    - ["command", "1"]
+    - ["command-two", "~/file"]
+    - ["cat", "$MEOW"]
+```
 
 #### Dot `packages`
 

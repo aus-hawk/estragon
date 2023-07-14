@@ -48,16 +48,13 @@ func (d mockFileDeployer) Expand(s string, dot string) string {
 	return s
 }
 
-func (d mockFileDeployer) ExpandRoot(root, dot string) string {
-	return root + "/" + dot
-}
-
 type mockDotManager struct {
 	shouldErr bool
 	method    string
 	root      string
 	dotPrefix bool
 	rules     map[string]string
+	deploy    [][]string
 }
 
 func (d mockDotManager) DotConfig(string) config.DotConfig {
@@ -66,12 +63,13 @@ func (d mockDotManager) DotConfig(string) config.DotConfig {
 		Root:      d.root,
 		DotPrefix: d.dotPrefix,
 		Rules:     d.rules,
+		Deploy:    d.deploy,
 	}
 }
 
 func TestNewDotfileDeployer(t *testing.T) {
-	expected := DotfileDeployer{mockDotManager{}, mockFileDeployer{}, ""}
-	actual := NewDotfileDeployer(mockDotManager{}, mockFileDeployer{}, "")
+	expected := DotfileDeployer{mockDotManager{}, mockFileDeployer{}, "", nil}
+	actual := NewDotfileDeployer(mockDotManager{}, mockFileDeployer{}, "", nil)
 	if !reflect.DeepEqual(expected, actual) {
 		t.Errorf("expected %#v, got %#v", expected, actual)
 	}
@@ -84,6 +82,7 @@ func TestDeploy(t *testing.T) {
 		mgr            mockDotManager
 		dotRoot        string
 		files          []string
+		deployRun      CmdRunner
 		expectedMap    map[string]string
 		expectedMethod string
 		err            string
@@ -96,6 +95,7 @@ func TestDeploy(t *testing.T) {
 			"/dot/root",
 			[]string{"doesnt", "matter"},
 			nil,
+			nil,
 			"",
 			"bad-method is not a valid method",
 		},
@@ -106,6 +106,7 @@ func TestDeploy(t *testing.T) {
 			},
 			"/dot/root",
 			[]string{"doesnt", "matter"},
+			nil,
 			nil,
 			"",
 			"",
@@ -118,6 +119,7 @@ func TestDeploy(t *testing.T) {
 			"/dot/root",
 			[]string{"doesnt", "matter"},
 			nil,
+			nil,
 			"symlink",
 			"symlink error",
 		},
@@ -128,6 +130,7 @@ func TestDeploy(t *testing.T) {
 			},
 			"/dot/root",
 			[]string{"doesnt", "matter"},
+			nil,
 			nil,
 			"symlink",
 			"symlink error",
@@ -140,6 +143,7 @@ func TestDeploy(t *testing.T) {
 			"/dot/root",
 			[]string{"doesnt", "matter"},
 			nil,
+			nil,
 			"copy",
 			"copy error",
 		},
@@ -151,6 +155,7 @@ func TestDeploy(t *testing.T) {
 			},
 			"/dot/root",
 			[]string{"doesnt", "matter"},
+			nil,
 			map[string]string{
 				f("/dot/root", "dotname"): "/out/root",
 			},
@@ -172,6 +177,7 @@ func TestDeploy(t *testing.T) {
 			},
 			"/dot/root",
 			[]string{"a", "b", "dot-c", "d/e", "d/f/g", "d/f/h"},
+			nil,
 			map[string]string{
 				f("/dot/root", "dotname", "a"):     "/link/a/dot",
 				f("/dot/root", "dotname", "d/f"):   "/dir/loc",
@@ -195,6 +201,7 @@ func TestDeploy(t *testing.T) {
 			},
 			"/dot/root",
 			[]string{"a", "b", "dot-c", "d/e", "d/f/g", "d/f/h"},
+			nil,
 			map[string]string{
 				// bound by rules
 				f("/dot/root", "dotname", "a"):     "/link/a/dot",
@@ -223,6 +230,7 @@ func TestDeploy(t *testing.T) {
 			},
 			"/dot/root",
 			[]string{"a", "b", "dot-c", "d/e", "d/f/g", "d/f/h"},
+			nil,
 			map[string]string{
 				// bound by rules
 				f("/dot/root", "dotname", "a"):     "/link/a/dot",
@@ -236,6 +244,51 @@ func TestDeploy(t *testing.T) {
 			"copy",
 			"",
 		},
+		{
+			"Successful deployment",
+			mockDotManager{
+				method: "none",
+				deploy: [][]string{{"a", "b"}, {"c", "d"}},
+			},
+			"",
+			nil,
+			func([]string) (int, error) {
+				return 0, nil
+			},
+			nil,
+			"",
+			"",
+		},
+		{
+			"Bad deployment from non-zero code",
+			mockDotManager{
+				method: "none",
+				deploy: [][]string{{"a", "b"}, {"c", "d"}},
+			},
+			"",
+			nil,
+			func([]string) (int, error) {
+				return 1, nil
+			},
+			nil,
+			"",
+			"Command a b returned 1",
+		},
+		{
+			"Bad deployment from bad run",
+			mockDotManager{
+				method: "none",
+				deploy: [][]string{{"a", "b"}, {"c", "d"}},
+			},
+			"",
+			nil,
+			func([]string) (int, error) {
+				return 0, errors.New("Uh oh")
+			},
+			nil,
+			"",
+			"Uh oh",
+		},
 	}
 
 	for _, test := range tests {
@@ -248,6 +301,7 @@ func TestDeploy(t *testing.T) {
 					t:              t,
 				},
 				test.dotRoot,
+				test.deployRun,
 			}
 
 			err := deployer.Deploy("dotname", test.files, false)

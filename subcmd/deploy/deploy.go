@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/aus-hawk/estragon/config"
 )
@@ -19,10 +20,13 @@ type FileDeployer interface {
 	Expand(path string, dot string) string
 }
 
+type CmdRunner func(cmd []string) (int, error)
+
 type DotfileDeployer struct {
 	mgr      DotManager
 	deployer FileDeployer
 	root     string
+	run      CmdRunner
 }
 
 // NewDotfileDeployer creates a DotfileDeployer that gathers information from
@@ -32,16 +36,27 @@ func NewDotfileDeployer(
 	mgr DotManager,
 	deployer FileDeployer,
 	root string,
+	run CmdRunner,
 ) DotfileDeployer {
-	return DotfileDeployer{mgr, deployer, root}
+	return DotfileDeployer{mgr, deployer, root, run}
 }
 
 // Deploy either copies or creates links of files within the dot file tree
-// outside of that file tree. dot is the name of the dot that is being deployed.
-// files is a slice of all of the files (not including directories) within the
-// dot directory. dry determines if an action is actually performed (true) or if
-// it will just be simulated by printing out what would actually happen (false).
+// outside of that file tree. It also runs all of the deploy commands. dot is
+// the name of the dot that is being deployed. files is a slice of all of the
+// files (not including directories) within the dot directory. dry determines if
+// an action is actually performed (true) or if it will just be simulated by
+// printing out what would actually happen (false).
 func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
+	err := d.deployFiles(dot, files, dry)
+	if err != nil {
+		return err
+	}
+
+	return d.deployCmd(dot, dry)
+}
+
+func (d DotfileDeployer) deployFiles(dot string, files []string, dry bool) error {
 	dotConf := d.mgr.DotConfig(dot)
 
 	var fileMap map[string]string
@@ -87,6 +102,43 @@ func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
 		}
 		if !dry {
 			return d.deployer.Copy(fileMap, dot)
+		}
+	}
+
+	return nil
+}
+
+func (d DotfileDeployer) deployCmd(dot string, dry bool) error {
+	dotConf := d.mgr.DotConfig(dot)
+
+	for _, cmd := range dotConf.Deploy {
+		expandedCmd := make([]string, 0, len(cmd))
+		for _, arg := range cmd {
+			expandedArg := d.deployer.Expand(arg, dot)
+			expandedCmd = append(expandedCmd, expandedArg)
+		}
+
+		cmdStr := strings.Join(expandedCmd, " ")
+		origCmdStr := strings.Join(cmd, " ")
+		fmt.Printf(
+			"Running command %s (expanded from %s)\n",
+			cmdStr,
+			origCmdStr,
+		)
+
+		if !dry {
+			code, err := d.run(expandedCmd)
+			if err != nil {
+				return err
+			} else if code != 0 {
+				errStr := fmt.Sprintf(
+					"Command %s returned %d",
+					cmdStr,
+					code,
+				)
+				return errors.New(errStr)
+			}
+
 		}
 	}
 

@@ -89,7 +89,7 @@ func runCmd(args []string) (int, error) {
 
 func (s SubcmdRunner) deploySubcmd(dots []string) error {
 	own := filepath.Join(s.dir, ".estragon", "own.json")
-	deployer := deploy.NewDotfileDeployer(s.conf, fileDeployer{own}, s.dir)
+	deployer := deploy.NewDotfileDeployer(s.conf, fileDeployer{own}, s.dir, runCmd)
 
 	for _, dot := range dots {
 		files, err := s.dirFiles(dot)
