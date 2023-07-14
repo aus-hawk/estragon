@@ -149,10 +149,16 @@ func (c Config) DotConfig(dotName string) (d DotConfig) {
 	dot := c.schema.Dots[dotName]
 
 	// Rules are only set in one place.
-	key, _ := c.selector.Select(mapKeys(dot.Rules))
+	key, fields := c.selector.Select(mapKeys(dot.Rules))
 	envRules, ok := dot.Rules[key]
 	if ok {
-		d.Rules = envRules
+		templatedRules := make(map[string]string)
+		match := env.NewMatch(key, fields)
+		for k, v := range envRules {
+			k = match.Replace(k)
+			templatedRules[k] = v
+		}
+		d.Rules = templatedRules
 	}
 
 	// Apply common config from dot-specific environment settings.

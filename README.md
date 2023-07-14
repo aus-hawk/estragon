@@ -301,7 +301,8 @@ and therefore not deployed. If a value is the empty string, the associated key
 will not be deployed. The value supports environment variables and `~` to
 `$HOME` expansion. Any files that are specified by the rules will ignore the
 `root` and `dot-prefix` settings. See the [environment string
-section](#environment-string) on how to format the environment key.
+section](#environment-string) on how to format the environment key. The keys of
+the map can be templated with the environment string submatches.
 
 For example:
 
@@ -315,6 +316,16 @@ rules:
     "": ""
   "school":
     "gitconfig-school": "$HOME/.gitconfig"
+    "": ""
+```
+
+Of course, since keys can be templated with environment string submatches, using
+the environment string it's possible to shorten this to just:
+
+```yaml
+rules:
+  "(home|work|school)":
+    "gitconfig-$1": "~/.gitconfig"
     "": ""
 ```
 
