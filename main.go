@@ -45,7 +45,7 @@ func main() {
 
 	fmt.Printf("Using environment: %s\n\n", env)
 
-	runner := subcmd.NewSubcmdRunner(conf, dir, args.dry)
+	runner := subcmd.NewSubcmdRunner(conf, dir, args.dry, args.force)
 
 	err = runner.RunSubcmd(args.subcommand, args.dots)
 	if err != nil {
@@ -56,7 +56,7 @@ func main() {
 
 type cmdArgs struct {
 	subcommand, dir, env string
-	dry                  bool
+	dry, force           bool
 	dots                 []string
 }
 
@@ -97,6 +97,12 @@ func parseFlags() (args cmdArgs, err error) {
 		"Show what the command would do without changing the system",
 	)
 
+	force := subcmdFlags.Bool(
+		"force",
+		false,
+		"Force ownership of files on deploy, overwriting existing ones",
+	)
+
 	if len(os.Args) < 2 {
 		subcmdFlags.Usage()
 		err = errors.New("Subcommand not specified")
@@ -119,6 +125,7 @@ func parseFlags() (args cmdArgs, err error) {
 	args.dir = *dir
 	args.env = *env
 	args.dry = *dry
+	args.force = *force
 	args.dots = subcmdFlags.Args()
 	return
 }
