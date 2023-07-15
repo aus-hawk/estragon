@@ -127,6 +127,7 @@ The root level configurations are defined by this table:
 | `check-cmd`    | An [environment-command map](#check-cmd-and-install-cmd) |
 | `install-cmd`  | An [environment-command map](#check-cmd-and-install-cmd) |
 | `dot-prefix`   | `true` or `false`                                        |
+| `validate`     | A [validation map](#validate)                            |
 | `environments` | Environment specific simple settings                     |
 | `packages`     | A [package specification map](#packages)                 |
 | `dots`         | A [dot map](#dots)                                       |
@@ -217,6 +218,43 @@ If a file is directly referenced by the [rules](#rules) (not by proxy by being
 in a referenced folder), or the dot is configured to use the shallow method,
 this setting is ignored and treated as false for that particular file or the
 entire folder respectively.
+
+### `validate`
+
+The `validate` field is a map from environments to lists of environments. All
+keys that match the environment string must also have their values match at
+least one of the listed environment strings in the values. Environments are
+validated for every command.
+
+This is useful for ensuring that you don't run Estragon without an important
+environment component, like a driver name. For example, if you wanted to require
+a certain set of graphics drivers when you use Debian and there is a mouse, but
+want a different set of drivers when there is no mouse, you could do something
+like this:
+
+```yaml
+validate:
+  debian:
+    - "driver:(abc|def|ghi) mouse"
+    - "driver:(rst|uvw|xyz) ! mouse"
+```
+
+Or if you know when you have x and y, you should have z:
+
+```yaml
+validate:
+  "x y": ["z"]
+```
+
+Wildcards work here too, so if you require that the name of the Linux distro you
+are using to be somewhere in the environment string for example, you could do
+this, which will fail if none of the distros listed are in the environment
+string:
+
+```yaml
+validate:
+  "": ["arch|debian|ubuntu|rhel"]
+```
 
 ### `environments`
 

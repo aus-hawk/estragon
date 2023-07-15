@@ -18,6 +18,14 @@ install-cmd:
   distro-two: ["packy", "get"]
   "t..t": ["testpkg-install"]
 
+validate:
+  test:
+    - "this and that"
+    - "that plus this"
+  tust:
+    - "thus und thut"
+    - "thut plus thus"
+
 environments:
   test:
     method: shallow
@@ -65,6 +73,16 @@ var goodSchema = schema{
 		"distro-one": {"pkgmgr", "install"},
 		"distro-two": {"packy", "get"},
 		"t..t":       {"testpkg-install"},
+	},
+	Validate: map[string][]string{
+		"test": {
+			"this and that",
+			"that plus this",
+		},
+		"tust": {
+			"thus und thut",
+			"thut plus thus",
+		},
 	},
 	Environments: map[string]common{
 		"test": {
@@ -125,6 +143,16 @@ func (s mockEnvSelector) Select(keys []string) (key string, fields []string) {
 	return s.key, s.fields
 }
 
+func (s mockEnvSelector) Matches(e string) bool {
+	// Fail if a string contains 'x'
+	for _, c := range e {
+		if c == 'x' {
+			return false
+		}
+	}
+	return true
+}
+
 func TestNewConfig(t *testing.T) {
 	tests := []struct {
 		desc string
@@ -163,6 +191,69 @@ func TestNewConfig(t *testing.T) {
 					test.c,
 					c,
 				)
+			}
+		})
+	}
+}
+
+func TestValidateEnv(t *testing.T) {
+	tests := []struct {
+		desc           string
+		validateList   map[string][]string
+		shouldValidate bool
+	}{
+		{
+			"No validate",
+			nil,
+			true,
+		},
+		{
+			"Empty validate",
+			map[string][]string{},
+			true,
+		},
+		{
+			"Environment doesn't match any keys",
+			map[string][]string{
+				"badxenv": {"badxkey"},
+				"anxther": {"bad env xnd key"},
+			},
+			true,
+		},
+		{
+			"Keys that match env pass",
+			map[string][]string{
+				"good":         {"badxkey", "its ok, this is good"},
+				"bax":          {"shouldn't match thisx"},
+				"another good": {"yup", "should be fine"},
+			},
+			true,
+		},
+		{
+			"Keys passing keys but failing list fails",
+			map[string][]string{
+				"good":     {"this is bxd", "this is not gxxd"},
+				"alsogood": {"doesn't matter, already failing"},
+			},
+			false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			c := Config{
+				schema: schema{
+					Validate: test.validateList,
+				},
+				selector: mockEnvSelector{},
+			}
+
+			v := c.ValidateEnv()
+
+			if v == nil && !test.shouldValidate {
+				t.Error("Validate passed when it shouldn't have")
+			} else if v != nil && test.shouldValidate {
+				t.Errorf("Validate failed with %s", v)
 			}
 		})
 	}

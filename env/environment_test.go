@@ -70,6 +70,38 @@ func TestValidateKey(t *testing.T) {
 	}
 }
 
+func TestEnvMatches(t *testing.T) {
+	e := Environment{"a", "b", "c"}
+
+	good := []string{
+		"a b c",
+		"a c",
+		"",
+		"a b ! d",
+		"! f g",
+		"! a d",
+	}
+
+	for _, g := range good {
+		if !e.Matches(g) {
+			t.Errorf(`Expected environment to match "%s"`, g)
+		}
+	}
+
+	bad := []string{
+		"! a b c",
+		"! a c",
+		"a b ! a|d",
+		"! a|d",
+	}
+
+	for _, b := range bad {
+		if e.Matches(b) {
+			t.Errorf(`Expected environment to not match "%s"`, b)
+		}
+	}
+}
+
 func TestEnvSelect(t *testing.T) {
 	keys := []string{
 		"",

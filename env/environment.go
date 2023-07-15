@@ -60,6 +60,12 @@ func (env Environment) Select(keys []string) (key string, fields []string) {
 	return
 }
 
+// Matches returns if the passed string s matches the environment as a bool.
+func (env Environment) Matches(s string) bool {
+	pattern := newPattern(s)
+	return pattern.wildcard() || env.patternFields(pattern) != nil
+}
+
 // patternFields returns a slice of the feilds in the environment that match the
 // good part of the passed pattern `p` in the order that they match in the
 // pattern. If the pattern does not match the environment, nil is returned.
