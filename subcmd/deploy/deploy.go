@@ -44,9 +44,10 @@ func NewDotfileDeployer(
 // Deploy either copies or creates links of files within the dot file tree
 // outside of that file tree. It also runs all of the deploy commands. dot is
 // the name of the dot that is being deployed. files is a slice of all of the
-// files (not including directories) within the dot directory. dry determines if
-// an action is actually performed (true) or if it will just be simulated by
-// printing out what would actually happen (false).
+// files (not including directories) within the dot directory. An empty slice
+// represents an empty directory, and a nil one represents a non-existent
+// directory. dry determines if an action is actually performed (true) or if it
+// will just be simulated by printing out what would actually happen (false).
 func (d DotfileDeployer) Deploy(dot string, files []string, dry bool) error {
 	err := d.deployFiles(dot, files, dry)
 	if err != nil {
@@ -67,7 +68,11 @@ func (d DotfileDeployer) deployFiles(dot string, files []string, dry bool) error
 	case "deep", "copy":
 		fileMap = d.deepCopyResolve(dotConf, files, dot)
 	case "shallow":
-		fileMap = d.shallowResolve(dotConf, files, dot)
+		if files != nil {
+			// nil files means the directory doesn't exist and we
+			// shouldn't link to a non-existent directory.
+			fileMap = d.shallowResolve(dotConf, files, dot)
+		}
 	default:
 		if method != "none" {
 			return errors.New(method + " is not a valid method")

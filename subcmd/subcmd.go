@@ -116,9 +116,17 @@ func (s SubcmdRunner) deploySubcmd(dots []string) error {
 }
 
 func (s SubcmdRunner) dirFiles(dot string) ([]string, error) {
-	files := make([]string, 0)
-
 	dotDir := filepath.Join(s.dir, dot)
+
+	if _, err := os.Stat(dotDir); errors.Is(err, os.ErrNotExist) {
+		// Don't try to walk or an error occurs. It's possible to want
+		// to deploy a dot without there being a dot folder.
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, 0)
 
 	walkFunc := func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
