@@ -25,6 +25,10 @@ func main() {
 		return
 	}
 
+	if args.dry {
+		fmt.Println("Running in dry mode, no changes will be made")
+	}
+
 	dir, err := initDir(args.dir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error initializing dir:", err)
