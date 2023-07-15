@@ -242,7 +242,9 @@ func (d fileDeployer) ensureOwnership(m map[string]string, dot string) error {
 			return err
 		}
 
-		if d.force && fileExists {
+		_, owned := ownedFiles[file]
+
+		if fileExists && (owned || d.force) {
 			err := os.RemoveAll(file)
 			if err != nil {
 				return err
@@ -250,8 +252,8 @@ func (d fileDeployer) ensureOwnership(m map[string]string, dot string) error {
 			fileExists = false
 		}
 
-		_, owned := ownedFiles[file]
-		if fileExists && !owned {
+		if fileExists {
+			// File should have been deleted if it was owned.
 			return errors.New(
 				file + " exists but is not owned by this directory",
 			)
