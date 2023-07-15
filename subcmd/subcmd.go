@@ -36,6 +36,11 @@ func ValidSubcmd(subcmd string) bool {
 }
 
 func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
+	err := s.conf.ValidateEnv()
+	if err != nil {
+		return err
+	}
+
 	switch subcmd {
 	case "install":
 		return s.installSubcmd(dots)

@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/aus-hawk/estragon/env"
 	"gopkg.in/yaml.v3"
@@ -11,6 +12,7 @@ type schema struct {
 	Common       common              `yaml:",inline"`
 	CheckCmd     map[string][]string `yaml:"check-cmd"`
 	InstallCmd   map[string][]string `yaml:"install-cmd"`
+	Validate     map[string][]string
 	Environments map[string]common
 	Packages     map[string]map[string][]string
 	Dots         map[string]dot
@@ -32,6 +34,7 @@ type common struct {
 
 type EnvSelector interface {
 	Select(keys []string) (key string, fields []string)
+	Matches(string) bool
 }
 
 // A Config contains all of the information about how files and packages are
@@ -48,6 +51,30 @@ func NewConfig(in []byte, s EnvSelector) (c Config, err error) {
 	err = yaml.Unmarshal(in, &c.schema)
 	c.selector = s
 	return
+}
+
+// Validate checks the passed environment env against each validation set in the
+// configuration. It returns non-nil if validation fails.
+func (c Config) ValidateEnv() error {
+	for k, v := range c.schema.Validate {
+		if c.selector.Matches(k) && !c.envMatchesAny(v) {
+			return fmt.Errorf(
+				`No match for environment found in validate key "%s"`,
+				k,
+			)
+		}
+	}
+
+	return nil
+}
+
+func (c Config) envMatchesAny(l []string) bool {
+	for _, e := range l {
+		if c.selector.Matches(e) {
+			return true
+		}
+	}
+	return false
 }
 
 // CheckCmd returns the check command that matches the environment. If none of
