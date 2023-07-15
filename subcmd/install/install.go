@@ -47,13 +47,15 @@ func (p PackageInstaller) Install(dots []string, dry bool) error {
 		return nil
 	}
 
-	for _, dot := range dots {
+	for i, dot := range dots {
 		fmt.Printf("Installing packages for %s\n", dot)
 		err := p.installDot(dot)
 		if err != nil {
 			return err
 		}
-		fmt.Println()
+		if i != len(dots)-1 {
+			fmt.Println()
+		}
 	}
 
 	return nil

@@ -44,13 +44,13 @@ func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 	case "undeploy":
 		return s.undeploySubcmd(dots)
 	case "redeploy":
-		fmt.Println("Undeploying dots")
+		fmt.Print("Undeploying dots\n\n")
 		err := s.undeploySubcmd(dots)
 		if err != nil {
 			return err
 		}
-		fmt.Println()
-		fmt.Println("Deploying dots")
+		fmt.Print("\n\n")
+		fmt.Print("Deploying dots\n\n")
 		return s.deploySubcmd(dots)
 	default:
 		errMsg := fmt.Sprintf(`"%s" is not a valid subcommand`, subcmd)
@@ -98,7 +98,7 @@ func (s SubcmdRunner) deploySubcmd(dots []string) error {
 		runCmd,
 	)
 
-	for _, dot := range dots {
+	for i, dot := range dots {
 		files, err := s.dirFiles(dot)
 		if err != nil {
 			return err
@@ -109,7 +109,9 @@ func (s SubcmdRunner) deploySubcmd(dots []string) error {
 			return err
 		}
 
-		fmt.Println()
+		if i != len(dots)-1 {
+			fmt.Println()
+		}
 	}
 
 	return nil
