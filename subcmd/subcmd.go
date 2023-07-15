@@ -257,7 +257,9 @@ func (d fileDeployer) ensureOwnership(m map[string]string, dot string) error {
 			)
 		}
 
-		ownedFileList = append(ownedFileList, file)
+		if !owned {
+			ownedFileList = append(ownedFileList, file)
+		}
 	}
 
 	dotOwn[dot] = ownedFileList
