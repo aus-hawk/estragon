@@ -2,8 +2,8 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
+	flag "github.com/spf13/pflag"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -65,7 +65,7 @@ func parseFlags() (args cmdArgs, err error) {
 	subcmdFlags.SetOutput(os.Stderr)
 	subcmdFlags.Usage = func() {
 		fmt.Println(
-			"usage: estragon [subcommand] [options] [dots]",
+			"usage: estragon <subcommand> [options] <dots>",
 		)
 		fmt.Println()
 		fmt.Println("subcommands:")
@@ -79,26 +79,30 @@ func parseFlags() (args cmdArgs, err error) {
 		subcmdFlags.PrintDefaults()
 	}
 
-	dir := subcmdFlags.String(
+	dir := subcmdFlags.StringP(
 		"dir",
+		"d",
 		"",
 		"The `directory` containing the dots (current one by default)",
 	)
 
-	env := subcmdFlags.String(
+	env := subcmdFlags.StringP(
 		"env",
+		"e",
 		"",
 		"The `environment` string used in environment matching",
 	)
 
-	dry := subcmdFlags.Bool(
+	dry := subcmdFlags.BoolP(
 		"dry",
+		"n",
 		false,
 		"Show what the command would do without changing the system",
 	)
 
-	force := subcmdFlags.Bool(
+	force := subcmdFlags.BoolP(
 		"force",
+		"f",
 		false,
 		"Force ownership of files on deploy, overwriting existing ones",
 	)
