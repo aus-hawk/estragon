@@ -26,15 +26,6 @@ func NewSubcmdRunner(conf config.Config, dir string, dry, force bool) SubcmdRunn
 	return SubcmdRunner{conf, dir, dry, force}
 }
 
-func ValidSubcmd(subcmd string) bool {
-	switch subcmd {
-	case "install", "deploy", "undeploy", "redeploy":
-		return true
-	default:
-		return false
-	}
-}
-
 func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 	err := s.conf.ValidateEnv()
 	if err != nil {
@@ -57,6 +48,8 @@ func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 		fmt.Print("\n\n")
 		fmt.Print("Deploying dots\n\n")
 		return s.deploySubcmd(dots)
+	case "":
+		return s.printOwnership(dots)
 	default:
 		errMsg := fmt.Sprintf(`"%s" is not a valid subcommand`, subcmd)
 		return errors.New(errMsg)
@@ -369,5 +362,40 @@ func removeEmptyParents(file string) error {
 
 		dir = filepath.Dir(dir)
 	}
+	return nil
+}
+
+func (s SubcmdRunner) printOwnership(dots []string) error {
+	ownJson := filepath.Join(s.dir, ".estragon", "own.json")
+
+	data, err := os.ReadFile(ownJson)
+	if err != nil {
+		return err
+	}
+
+	var dotOwnJson map[string][]string
+	err = json.Unmarshal(data, &dotOwnJson)
+	if err != nil {
+		return err
+	}
+
+	var dotOwn map[string][]string
+
+	if len(dots) > 0 {
+		dotOwn = make(map[string][]string)
+		for _, dot := range dots {
+			dotOwn[dot] = dotOwnJson[dot]
+		}
+	} else {
+		dotOwn = dotOwnJson
+	}
+
+	for dot, owned := range dotOwn {
+		fmt.Printf("Files owned by %s:\n", dot)
+		for _, o := range owned {
+			fmt.Printf("  %s\n", o)
+		}
+	}
+
 	return nil
 }
