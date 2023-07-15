@@ -44,11 +44,13 @@ func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 	case "undeploy":
 		return s.undeploySubcmd(dots)
 	case "redeploy":
+		fmt.Println("Undeploying dots")
 		err := s.undeploySubcmd(dots)
 		if err != nil {
 			return err
 		}
 		fmt.Println()
+		fmt.Println("Deploying dots")
 		return s.deploySubcmd(dots)
 	default:
 		errMsg := fmt.Sprintf(`"%s" is not a valid subcommand`, subcmd)
