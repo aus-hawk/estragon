@@ -76,19 +76,30 @@ func (d DotfileDeployer) deployFiles(dot string, files []string, dry bool) error
 	default:
 		if method != "none" {
 			return errors.New(method + " is not a valid method")
-		} else {
-			return nil
 		}
 	}
 
-	expandedRoot := d.deployer.Expand(dotConf.Root, dot)
+	fmt.Println("Method:", method)
+	if method != "none" {
+		expandedRoot := d.deployer.Expand(dotConf.Root, dot)
+		if expandedRoot != dotConf.Root {
+			expandedRoot += "(expanded from " + dotConf.Root + ")"
+		}
+		fmt.Println("Root:", expandedRoot)
+		fmt.Println("Dot prefix:", dotConf.DotPrefix)
+		if len(dotConf.Rules) > 0 {
+			fmt.Println("Rules:")
+			for k, v := range dotConf.Rules {
+				fmt.Printf("  %s -> %s\n", k, v)
+			}
+		}
+	}
 
-	fmt.Println("Method:", dotConf.Method)
-	fmt.Printf("Root: %s (expanded from %s)\n", expandedRoot, dotConf.Root)
-	fmt.Println("Dot prefix:", dotConf.DotPrefix)
-	fmt.Println("Rules:")
-	for k, v := range dotConf.Rules {
-		fmt.Printf("  %s -> %s\n", k, v)
+	fmt.Println()
+
+	if len(fileMap) == 0 {
+		fmt.Println("No files to deploy")
+		return nil
 	}
 
 	switch method {
@@ -115,6 +126,12 @@ func (d DotfileDeployer) deployFiles(dot string, files []string, dry bool) error
 
 func (d DotfileDeployer) deployCmd(dot string, dry bool) error {
 	dotConf := d.mgr.DotConfig(dot)
+
+	if len(dotConf.Deploy) > 0 {
+		// Separate command deployment from file deployment because
+		// command deployment always comes after file deployment.
+		fmt.Println()
+	}
 
 	for _, cmd := range dotConf.Deploy {
 		expandedCmd := make([]string, 0, len(cmd))
