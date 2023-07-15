@@ -83,7 +83,7 @@ func (d DotfileDeployer) deployFiles(dot string, files []string, dry bool) error
 	if method != "none" {
 		expandedRoot := d.deployer.Expand(dotConf.Root, dot)
 		if expandedRoot != dotConf.Root {
-			expandedRoot += "(expanded from " + dotConf.Root + ")"
+			expandedRoot += " (expanded from " + dotConf.Root + ")"
 		}
 		fmt.Println("Root:", expandedRoot)
 		fmt.Println("Dot prefix:", dotConf.DotPrefix)
@@ -142,11 +142,10 @@ func (d DotfileDeployer) deployCmd(dot string, dry bool) error {
 
 		cmdStr := strings.Join(expandedCmd, " ")
 		origCmdStr := strings.Join(cmd, " ")
-		fmt.Printf(
-			"Running command %s (expanded from %s)\n",
-			cmdStr,
-			origCmdStr,
-		)
+		if cmdStr != origCmdStr {
+			cmdStr += " (expanded from " + origCmdStr + ")"
+		}
+		fmt.Println("Running command", cmdStr)
 
 		if !dry {
 			code, err := d.run(expandedCmd)
