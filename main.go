@@ -3,11 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	flag "github.com/spf13/pflag"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
+	"strings"
+
+	flag "github.com/spf13/pflag"
 
 	"github.com/aus-hawk/estragon/config"
 	"github.com/aus-hawk/estragon/env"
@@ -69,7 +70,7 @@ func parseFlags() (args cmdArgs, err error) {
 	subcmdFlags.SetOutput(os.Stderr)
 	subcmdFlags.Usage = func() {
 		fmt.Println(
-			"usage: estragon <subcommand> [options] <dots>",
+			"usage: estragon [subcommand] [options] [dots]",
 		)
 		fmt.Println()
 		fmt.Println("subcommands:")
@@ -78,6 +79,10 @@ func parseFlags() (args cmdArgs, err error) {
 		fmt.Println("  undeploy - Delete files that were previously deployed")
 		fmt.Println("  redeploy - Undeploy, then deploy each dot")
 		fmt.Println("  help     - Display this message")
+		fmt.Println()
+		fmt.Println("A lack of a subcommand will print the ownership of")
+		fmt.Println("the dots (all of them by default) and store the")
+		fmt.Println("environment you pass")
 		fmt.Println()
 		fmt.Println("options:")
 		subcmdFlags.PrintDefaults()
@@ -111,23 +116,24 @@ func parseFlags() (args cmdArgs, err error) {
 		"Force ownership of files on deploy, overwriting existing ones",
 	)
 
+	var argList []string
+
 	if len(os.Args) < 2 {
-		subcmdFlags.Usage()
-		err = errors.New("Subcommand not specified")
+		// Called with no subcommand or flags.
 		return
-	} else if !subcmd.ValidSubcmd(os.Args[1]) {
+	} else if strings.HasPrefix(os.Args[1], "-") {
+		// Called with no subcommand.
+		argList = os.Args[1:]
+	} else if os.Args[1] == "help" {
 		subcmdFlags.Usage()
-		match, _ := regexp.Match("^(-h|--help)$", []byte(os.Args[1]))
-		if match || os.Args[1] == "help" {
-			err = flag.ErrHelp
-		} else {
-			err = errors.New("Invalid subcommand " + os.Args[1])
-		}
+		err = flag.ErrHelp
 		return
+	} else {
+		args.subcommand = os.Args[1]
+		argList = os.Args[2:]
 	}
 
-	args.subcommand = os.Args[1]
-	err = subcmdFlags.Parse(os.Args[2:])
+	err = subcmdFlags.Parse(argList)
 	if err != nil {
 		return
 	}
