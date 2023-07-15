@@ -117,9 +117,11 @@ func parseFlags() (args cmdArgs, err error) {
 		return
 	} else if !subcmd.ValidSubcmd(os.Args[1]) {
 		subcmdFlags.Usage()
-		match, _ := regexp.Match("^--?h(elp)?$", []byte(os.Args[1]))
+		match, _ := regexp.Match("^(-h|--help)$", []byte(os.Args[1]))
 		if match || os.Args[1] == "help" {
 			err = flag.ErrHelp
+		} else {
+			err = errors.New("Invalid subcommand " + os.Args[1])
 		}
 		return
 	}
@@ -208,7 +210,7 @@ func getEnv(argEnv, dir string) (env string, err error) {
 		envBytes, err = os.ReadFile(envFile)
 		if err != nil {
 			err = errors.New(
-				"No -env passed or .estragon/env file in directory",
+				"No --env argument or .estragon/env file in directory",
 			)
 			return
 		}
