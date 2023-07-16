@@ -4,6 +4,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/aus-hawk/estragon/config"
@@ -44,8 +45,12 @@ func (d mockFileDeployer) Symlink(m map[string]string, dot string) error {
 	return d.testExpectedMap(m)
 }
 
-func (d mockFileDeployer) Expand(s string, dot string) string {
-	return s
+func (d mockFileDeployer) Expand(s string, dot string) (string, error) {
+	if strings.Contains(s, "BADEXPAND") {
+		return s, errors.New(s)
+	} else {
+		return s, nil
+	}
 }
 
 type mockDotManager struct {
@@ -288,6 +293,75 @@ func TestDeploy(t *testing.T) {
 			nil,
 			"",
 			"Uh oh",
+		},
+		{
+			"Bad root expansion",
+			mockDotManager{
+				method: "shallow",
+				root:   "/out/BADEXPAND/root",
+				rules: map[string]string{
+					"a": "/link/a/dot",
+				},
+			},
+			"/dot/root",
+			[]string{"doesnt", "matter"},
+			nil,
+			nil,
+			"",
+			"/out/BADEXPAND/root",
+		},
+		{
+			`Bad rule expansion`,
+			mockDotManager{
+				method: "shallow",
+				root:   "/out/root",
+				rules: map[string]string{
+					"a": "/link/BADEXPAND/dot",
+				},
+			},
+			"/dot/root",
+			[]string{"a"},
+			nil,
+			nil,
+			"",
+			"/link/BADEXPAND/dot",
+		},
+		{
+			"Bad deployment from expansion",
+			mockDotManager{
+				method: "none",
+				deploy: [][]string{{"a", "BADEXPAND"}},
+			},
+			"",
+			nil,
+			func([]string) (int, error) {
+				return 0, nil
+			},
+			nil,
+			"",
+			"BADEXPAND",
+		},
+		{
+			`Ignored bad rule expansion`,
+			mockDotManager{
+				method: "shallow",
+				root:   "/out/root",
+				rules: map[string]string{
+					"a": "/link/BADEXPAND/dot",
+					"b": "/no/prob",
+				},
+				deploy: [][]string{{"a", "ok"}},
+			},
+			"/dot/root",
+			[]string{"b"},
+			func([]string) (int, error) {
+				return 0, nil
+			},
+			map[string]string{
+				f("/dot/root", "dotname", "b"): "/no/prob",
+			},
+			"symlink",
+			"",
 		},
 	}
 

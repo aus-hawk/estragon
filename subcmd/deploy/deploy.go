@@ -17,7 +17,7 @@ type DotManager interface {
 type FileDeployer interface {
 	Copy(fileMap map[string]string, dot string) error
 	Symlink(fileMap map[string]string, dot string) error
-	Expand(path string, dot string) string
+	Expand(path string, dot string) (string, error)
 }
 
 type CmdRunner func(cmd []string) (int, error)
@@ -64,24 +64,32 @@ func (d DotfileDeployer) deployFiles(dot string, files []string, dry bool) error
 
 	method := dotConf.Method
 
+	var err error
 	switch method {
 	case "deep", "copy":
-		fileMap = d.deepCopyResolve(dotConf, files, dot)
+		fileMap, err = d.deepCopyResolve(dotConf, files, dot)
 	case "shallow":
 		if files != nil {
 			// nil files means the directory doesn't exist and we
 			// shouldn't link to a non-existent directory.
-			fileMap = d.shallowResolve(dotConf, files, dot)
+			fileMap, err = d.shallowResolve(dotConf, files, dot)
 		}
 	default:
 		if method != "none" {
 			return errors.New(method + " is not a valid method")
 		}
 	}
+	if err != nil {
+		return err
+	}
 
 	fmt.Println("Method:", method)
 	if method != "none" {
-		expandedRoot := d.deployer.Expand(dotConf.Root, dot)
+		expandedRoot, err := d.deployer.Expand(dotConf.Root, dot)
+		if err != nil {
+			return err
+		}
+
 		if expandedRoot != dotConf.Root {
 			expandedRoot += " (expanded from " + dotConf.Root + ")"
 		}
@@ -136,7 +144,10 @@ func (d DotfileDeployer) deployCmd(dot string, dry bool) error {
 	for _, cmd := range dotConf.Deploy {
 		expandedCmd := make([]string, 0, len(cmd))
 		for _, arg := range cmd {
-			expandedArg := d.deployer.Expand(arg, dot)
+			expandedArg, err := d.deployer.Expand(arg, dot)
+			if err != nil {
+				return err
+			}
 			expandedCmd = append(expandedCmd, expandedArg)
 		}
 
@@ -170,7 +181,7 @@ func (d DotfileDeployer) deepCopyResolve(
 	conf config.DotConfig,
 	files []string,
 	dot string,
-) map[string]string {
+) (map[string]string, error) {
 	rules := conf.Rules
 
 	// Ignore ruleless if an empty key exists in the rules map.
@@ -200,7 +211,7 @@ func (d DotfileDeployer) shallowResolve(
 	conf config.DotConfig,
 	files []string,
 	dot string,
-) map[string]string {
+) (map[string]string, error) {
 	// All this function should do is filter the rules to only include real
 	// files that exist according to the files variable.
 	rules := conf.Rules
@@ -282,7 +293,7 @@ func (d DotfileDeployer) expandResolvedPaths(
 	conf config.DotConfig,
 	dot string,
 	expandPrefix bool,
-) map[string]string {
+) (map[string]string, error) {
 	outRoot := conf.Root
 	dotRoot := filepath.Join(d.root, dot)
 
@@ -298,12 +309,21 @@ func (d DotfileDeployer) expandResolvedPaths(
 		}
 		file = filepath.Join(dotRoot, file)
 
-		file = d.deployer.Expand(file, dot)
-		outFile = d.deployer.Expand(outFile, dot)
+		var err error
+		file, err = d.deployer.Expand(file, dot)
+		if err != nil {
+			return nil, err
+		}
+
+		outFile, err = d.deployer.Expand(outFile, dot)
+		if err != nil {
+			return nil, err
+		}
+
 		expandedPaths[file] = outFile
 	}
 
-	return expandedPaths
+	return expandedPaths, nil
 }
 
 var dotPrefixRegexp *regexp.Regexp = regexp.MustCompile("(^|/)dot-")
