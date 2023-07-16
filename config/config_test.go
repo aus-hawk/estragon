@@ -196,6 +196,18 @@ func TestNewConfig(t *testing.T) {
 	}
 }
 
+func TestAllDots(t *testing.T) {
+	c := Config{
+		schema: goodSchema,
+	}
+
+	expectedAll := []string{"dotfile", "commonless", "templated", "deployable"}
+	actualAll := c.AllDots()
+	if !reflect.DeepEqual(expectedAll, actualAll) {
+		t.Errorf("Expected %#v, got %#v", expectedAll, actualAll)
+	}
+}
+
 func TestValidateEnv(t *testing.T) {
 	tests := []struct {
 		desc           string
