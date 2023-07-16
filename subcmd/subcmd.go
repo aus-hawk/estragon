@@ -210,11 +210,19 @@ func (d fileDeployer) Symlink(m map[string]string, dot string) error {
 	return nil
 }
 
-func (_ fileDeployer) Expand(s string, dot string) string {
+func (_ fileDeployer) Expand(s string, dot string) (string, error) {
 	home, _ := os.UserHomeDir()
 	s = strings.ReplaceAll(s, "~", home)
 	s = strings.ReplaceAll(s, "*", dot)
-	return os.ExpandEnv(s)
+	var err error
+	s = os.Expand(s, func(k string) string {
+		e, varExists := os.LookupEnv(k)
+		if err == nil && !varExists {
+			err = errors.New("Environment variable " + k + " is not set")
+		}
+		return e
+	})
+	return s, err
 }
 
 func (d fileDeployer) ensureOwnership(m map[string]string, dot string) error {
