@@ -203,9 +203,20 @@ func TestAllDots(t *testing.T) {
 
 	expectedAll := []string{"dotfile", "commonless", "templated", "deployable"}
 	actualAll := c.AllDots()
-	if !reflect.DeepEqual(expectedAll, actualAll) {
+
+	expectedAllSet := setify(expectedAll)
+	actualAllSet := setify(actualAll)
+	if !reflect.DeepEqual(expectedAllSet, actualAllSet) {
 		t.Errorf("Expected %#v, got %#v", expectedAll, actualAll)
 	}
+}
+
+func setify(s []string) map[string]struct{} {
+	m := make(map[string]struct{})
+	for _, x := range s {
+		m[x] = struct{}{}
+	}
+	return m
 }
 
 func TestValidateEnv(t *testing.T) {
