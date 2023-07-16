@@ -62,7 +62,7 @@ func (c Config) AllDots() []string {
 	return d
 }
 
-// Validate checks the passed environment env against each validation set in the
+// ValidateEnv checks the environment string against each validation set in the
 // configuration. It returns non-nil if validation fails.
 func (c Config) ValidateEnv() error {
 	for k, v := range c.schema.Validate {
