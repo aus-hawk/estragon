@@ -201,22 +201,11 @@ func TestAllDots(t *testing.T) {
 		schema: goodSchema,
 	}
 
-	expectedAll := []string{"dotfile", "commonless", "templated", "deployable"}
+	expectedAll := []string{"commonless", "deployable", "dotfile", "templated"}
 	actualAll := c.AllDots()
-
-	expectedAllSet := setify(expectedAll)
-	actualAllSet := setify(actualAll)
-	if !reflect.DeepEqual(expectedAllSet, actualAllSet) {
+	if !reflect.DeepEqual(expectedAll, actualAll) {
 		t.Errorf("Expected %#v, got %#v", expectedAll, actualAll)
 	}
-}
-
-func setify(s []string) map[string]struct{} {
-	m := make(map[string]struct{})
-	for _, x := range s {
-		m[x] = struct{}{}
-	}
-	return m
 }
 
 func TestValidateEnv(t *testing.T) {

@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/aus-hawk/estragon/env"
 	"gopkg.in/yaml.v3"
@@ -59,6 +60,7 @@ func (c Config) AllDots() []string {
 	for k := range c.schema.Dots {
 		d = append(d, k)
 	}
+	sort.Strings(d)
 	return d
 }
 
