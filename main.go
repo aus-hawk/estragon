@@ -52,6 +52,12 @@ func main() {
 
 	runner := subcmd.NewSubcmdRunner(conf, dir, args.dry, args.force)
 
+	if args.all {
+		args.dots = append(args.dots, conf.AllDots()...)
+	}
+
+	args.dots = removeDuplicates(args.dots)
+
 	err = runner.RunSubcmd(args.subcommand, args.dots)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
@@ -61,7 +67,7 @@ func main() {
 
 type cmdArgs struct {
 	subcommand, dir, env string
-	dry, force           bool
+	dry, force, all      bool
 	dots                 []string
 }
 
@@ -116,6 +122,13 @@ func parseFlags() (args cmdArgs, err error) {
 		"Force ownership of files on deploy, overwriting existing ones",
 	)
 
+	all := subcmdFlags.BoolP(
+		"all",
+		"a",
+		false,
+		"Add all dots defined in estragon.yaml to the dot list",
+	)
+
 	var argList []string
 
 	if len(os.Args) < 2 {
@@ -142,6 +155,7 @@ func parseFlags() (args cmdArgs, err error) {
 	args.env = *env
 	args.dry = *dry
 	args.force = *force
+	args.all = *all
 	args.dots = subcmdFlags.Args()
 	return
 }
@@ -240,4 +254,16 @@ func getConfig(dir, envString string) (conf config.Config, err error) {
 	conf, err = config.NewConfig(f, environment)
 
 	return
+}
+
+func removeDuplicates(s []string) []string {
+	unique := make(map[string]struct{})
+	for _, x := range s {
+		unique[x] = struct{}{}
+	}
+	s = make([]string, 0, len(unique))
+	for k := range unique {
+		s = append(s, k)
+	}
+	return s
 }

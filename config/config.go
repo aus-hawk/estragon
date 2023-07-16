@@ -53,6 +53,15 @@ func NewConfig(in []byte, s EnvSelector) (c Config, err error) {
 	return
 }
 
+// AllDots returns the slice of all dots that are defined within the config.
+func (c Config) AllDots() []string {
+	d := make([]string, 0, len(c.schema.Dots))
+	for k := range c.schema.Dots {
+		d = append(d, k)
+	}
+	return d
+}
+
 // Validate checks the passed environment env against each validation set in the
 // configuration. It returns non-nil if validation fails.
 func (c Config) ValidateEnv() error {
