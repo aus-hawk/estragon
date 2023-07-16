@@ -52,13 +52,14 @@ func main() {
 
 	runner := subcmd.NewSubcmdRunner(conf, dir, args.dry, args.force)
 
+	dots := removeDuplicates(args.dots)
+
 	if args.all {
-		args.dots = append(args.dots, conf.AllDots()...)
+		dots = append(conf.AllDots(), dots...)
+		dots = removeDuplicates(dots)
 	}
 
-	args.dots = removeDuplicates(args.dots)
-
-	err = runner.RunSubcmd(args.subcommand, args.dots)
+	err = runner.RunSubcmd(args.subcommand, dots)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(2)
@@ -258,12 +259,12 @@ func getConfig(dir, envString string) (conf config.Config, err error) {
 
 func removeDuplicates(s []string) []string {
 	unique := make(map[string]struct{})
+	uniqueS := make([]string, 0)
 	for _, x := range s {
-		unique[x] = struct{}{}
+		if _, ok := unique[x]; !ok {
+			unique[x] = struct{}{}
+			uniqueS = append(uniqueS, x)
+		}
 	}
-	s = make([]string, 0, len(unique))
-	for k := range unique {
-		s = append(s, k)
-	}
-	return s
+	return uniqueS
 }
