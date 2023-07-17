@@ -28,8 +28,21 @@ func NewSubcmdRunner(conf config.Config, dir string, dry, force bool) SubcmdRunn
 
 func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 	err := s.conf.ValidateEnv()
-	if err != nil {
+	if err != nil && subcmd != "env" {
 		return err
+	}
+
+	if subcmd != "envvar" {
+		envvars, err := s.getEnvvars()
+		if err != nil {
+			return err
+		}
+		for k, v := range envvars {
+			err := os.Setenv(k, v)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	switch subcmd {
@@ -48,6 +61,8 @@ func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 		fmt.Print("\n\n")
 		fmt.Print("Deploying dots\n\n")
 		return s.deploySubcmd(dots)
+	case "envvar":
+		return s.envvarsSubcmd(dots)
 	case "":
 		return s.printOwnership(dots)
 	default:
@@ -371,6 +386,68 @@ func removeEmptyParents(file string) error {
 		dir = filepath.Dir(dir)
 	}
 	return nil
+}
+
+func (s SubcmdRunner) envvarsSubcmd(envs []string) error {
+	envvars, err := s.getEnvvars()
+	if err != nil {
+		return err
+	}
+
+	for _, e := range envs {
+		pair := strings.SplitN(e, "=", 2)
+		if len(pair) == 2 {
+			envvars[pair[0]] = pair[1]
+		} else if strings.HasSuffix(e, "-") {
+			delete(envvars, strings.TrimSuffix(e, "-"))
+		} else {
+			fmt.Println(envvars[e])
+		}
+	}
+
+	envvarStr := ""
+
+	for k, v := range envvars {
+		// Actually set the variables as a sanity check before trying to
+		// commit potentially bad names.
+		err := os.Setenv(k, v)
+		if err != nil {
+			return err
+		}
+		envvarStr += k + "=" + v + "\n"
+	}
+
+	envvarFile := filepath.Join(s.dir, ".estragon", "envvars")
+	err = os.WriteFile(envvarFile, []byte(envvarStr), 0666)
+
+	return err
+}
+
+func (s SubcmdRunner) getEnvvars() (map[string]string, error) {
+	varMap := make(map[string]string)
+
+	envvars := filepath.Join(s.dir, ".estragon", "envvars")
+	varsBytes, err := os.ReadFile(envvars)
+	if err != nil {
+		return varMap, err
+	}
+
+	vars := strings.Split(string(varsBytes), "\n")
+	for _, v := range vars {
+		if v == "" {
+			continue
+		}
+		pair := strings.SplitN(v, "=", 2)
+		if len(pair) == 2 {
+			varMap[pair[0]] = pair[1]
+		} else {
+			return varMap, errors.New(
+				".estragon/envvars file is incorrectly formatted",
+			)
+		}
+	}
+
+	return varMap, nil
 }
 
 func (s SubcmdRunner) printOwnership(dots []string) error {

@@ -98,6 +98,46 @@ out.
 
 All lone exclamation marks after the first are ignored.
 
+## Environment Variables
+
+Some configurations in the `estragon.yaml` file are able to use environment
+variables. There are circumstances where an environment variable could be bound
+differently for every computer you work on. You could bind those variables in
+your shell config, but what if you don't have one? Or if you don't want to
+populate the config with those values or branches and don't want to make copies
+of the files with minor differences? You could run `VARNAME=VALUE estragon ...`
+every time you need to use it, but there is a better solution to this.
+
+Estragon allows you to bind environment variables that will only be active when
+you run Estragon with that directory with the `envvar` subcommand. Just the name
+of a variable will print the value of that variable. Variables can be assigned
+values by separating the key and the value with an equal sign (`=`). Variables
+can be removed by appending a minus (`-`) to the name.
+
+For example:
+
+```bash
+$ estragon envvar abc
+
+$ estragon envvar abc=def
+$ estragon envvar abc
+def
+$ estragon envvar abc-
+$ estragon envvar abc
+
+```
+
+The last line in the example is empty indicating that the value was removed so
+it doesn't print a value.
+
+An example of where this is useful is files in Firefox profiles like
+`userChrome.css`. The names Firefox makes for the profile folders are somewhat
+random and change on every machine, so this allows you to set this for every
+machine without bogging up your shell configuration or having to run the command
+with `VARNAME=VALUE estragon ...` every time.
+
+Instead, you can put the path to the
+
 ## `estragon.yaml` Config File Schema
 
 For Estragon to know what to do with a directory of dotfiles, it needs to be
