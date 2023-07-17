@@ -26,7 +26,7 @@ func main() {
 		return
 	}
 
-	if args.dry {
+	if args.dry && args.subcommand != "envvar" {
 		fmt.Println("Running in dry mode, no changes will be made")
 	}
 
@@ -48,7 +48,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Using environment: %s\n\n", env)
+	if args.subcommand != "envvar" {
+		fmt.Printf("Using environment: %s\n\n", env)
+	}
 
 	runner := subcmd.NewSubcmdRunner(conf, dir, args.dry, args.force)
 
@@ -76,20 +78,29 @@ func parseFlags() (args cmdArgs, err error) {
 	subcmdFlags := flag.NewFlagSet("subcommands", flag.ContinueOnError)
 	subcmdFlags.SetOutput(os.Stderr)
 	subcmdFlags.Usage = func() {
-		fmt.Println(
-			"usage: estragon [subcommand] [options] [dots]",
-		)
-		fmt.Println()
-		fmt.Println("subcommands:")
-		fmt.Println("  install  - Install the packages of each dot")
-		fmt.Println("  deploy   - Deploy the files in the dot folders")
-		fmt.Println("  undeploy - Delete files that were previously deployed")
-		fmt.Println("  redeploy - Undeploy, then deploy each dot")
-		fmt.Println("  help     - Display this message")
-		fmt.Println()
-		fmt.Println("A lack of a subcommand will print the ownership of")
-		fmt.Println("the dots (all of them by default) and store the")
-		fmt.Println("environment you pass")
+		helpLines := []string{
+			"usage: estragon [subcommand] [options] [dots|envs]",
+			"",
+			"subcommands:",
+			"  install  - Install the packages of each dot",
+			"  deploy   - Deploy the files in the dot folders",
+			"  undeploy - Delete files that were previously deployed",
+			"  redeploy - Undeploy, then deploy each dot",
+			"  envvar   - Set and print local environment variables",
+			"  help     - Display this message",
+			"",
+			"All subcommands take a list of dots except for envvar,",
+			"which takes strings without equal signs to print an",
+			"environment value, with equal signs to set them to new",
+			"values, and with a minus (-) after the name to remove them",
+			"",
+			"A lack of a subcommand will print the ownership of",
+			"the dots (all of them by default) and store the",
+			"environment you pass",
+		}
+		for _, l := range helpLines {
+			fmt.Println(l)
+		}
 		fmt.Println()
 		fmt.Println("options:")
 		subcmdFlags.PrintDefaults()
@@ -217,6 +228,13 @@ func initDir(argDir string) (dir string, err error) {
 	} else if err != nil {
 		return dir, err
 	}
+
+	envvars := filepath.Join(estragonDir, "envvars")
+	f, err := os.OpenFile(envvars, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return
+	}
+	defer f.Close()
 
 	return
 }
