@@ -136,7 +136,9 @@ random and change on every machine, so this allows you to set this for every
 machine without bogging up your shell configuration or having to run the command
 with `VARNAME=VALUE estragon ...` every time.
 
-Instead, you can put the path to the
+Instead, you can put the path to the config including the per-machine variable
+in the rule value, and as long as that variable is set (by Estragon or
+otherwise), it will work as expected.
 
 ## `estragon.yaml` Config File Schema
 
