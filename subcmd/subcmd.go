@@ -1,10 +1,8 @@
 package subcmd
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -12,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/aus-hawk/estragon/config"
-	"github.com/aus-hawk/estragon/subcmd/deploy"
-	"github.com/aus-hawk/estragon/subcmd/install"
 )
 
 type SubcmdRunner struct {
@@ -28,7 +24,7 @@ func NewSubcmdRunner(conf config.Config, dir string, dry, force bool) SubcmdRunn
 
 func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 	err := s.conf.ValidateEnv()
-	if err != nil && subcmd != "env" {
+	if err != nil && subcmd != "envvar" {
 		return err
 	}
 
@@ -47,7 +43,11 @@ func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 
 	switch subcmd {
 	case "install":
-		return s.installSubcmd(dots)
+		pkgInstaller, err := NewPackageInstaller(s.conf, s.dry)
+		if err != nil {
+			return err
+		}
+		return pkgInstaller.Install(dots)
 	case "deploy":
 		return s.deploySubcmd(dots)
 	case "undeploy":
@@ -62,29 +62,17 @@ func (s SubcmdRunner) RunSubcmd(subcmd string, dots []string) error {
 		fmt.Print("Deploying dots\n\n")
 		return s.deploySubcmd(dots)
 	case "envvar":
-		return s.envvarsSubcmd(dots)
+		envvars, err := s.getEnvvars()
+		if err != nil {
+			return err
+		}
+		return Envvars(dots, envvars, s.dir)
 	case "":
 		return s.printOwnership(dots)
 	default:
 		errMsg := fmt.Sprintf(`"%s" is not a valid subcommand`, subcmd)
 		return errors.New(errMsg)
 	}
-}
-
-func (s SubcmdRunner) installSubcmd(dots []string) error {
-	checkCmd := s.conf.CheckCmd()
-	if len(checkCmd) == 0 {
-		return errors.New("No matching non-empty check-cmd for environment")
-	}
-
-	installCmd := s.conf.InstallCmd()
-	if len(installCmd) == 0 {
-		return errors.New("No matching non-empty install-cmd for environment")
-	}
-
-	pkgInstaller := install.NewPackageInstaller(s.conf, runCmd)
-
-	return pkgInstaller.Install(dots, s.dry)
 }
 
 func runCmd(args []string) (int, error) {
@@ -103,21 +91,32 @@ func runCmd(args []string) (int, error) {
 }
 
 func (s SubcmdRunner) deploySubcmd(dots []string) error {
-	own := filepath.Join(s.dir, ".estragon", "own.json")
-	deployer := deploy.NewDotfileDeployer(
-		s.conf,
-		fileDeployer{own, s.force},
-		s.dir,
-		runCmd,
-	)
-
+	ownJson := filepath.Join(s.dir, ".estragon", "own.json")
+	own := OwnershipManager{ownJson, s.force}
 	for i, dot := range dots {
-		files, err := s.dirFiles(dot)
+		conf := s.conf.DotConfig(dot)
+		root := filepath.Join(s.dir, dot)
+		deployer := NewDotfileDeployer(
+			conf,
+			root,
+			pathExpander{dot}.expand,
+			own,
+			s.dry,
+		)
+
+		files, err := dirFiles(root)
 		if err != nil {
 			return err
 		}
 
-		err = deployer.Deploy(dot, files, s.dry)
+		err = deployer.DeployFiles(dot, files)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println()
+
+		err = deployer.DeployCmd(dot)
 		if err != nil {
 			return err
 		}
@@ -130,9 +129,7 @@ func (s SubcmdRunner) deploySubcmd(dots []string) error {
 	return nil
 }
 
-func (s SubcmdRunner) dirFiles(dot string) ([]string, error) {
-	dotDir := filepath.Join(s.dir, dot)
-
+func dirFiles(dotDir string) ([]string, error) {
 	if _, err := os.Stat(dotDir); errors.Is(err, os.ErrNotExist) {
 		// Don't try to walk or an error occurs. It's possible to want
 		// to deploy a dot without there being a dot folder.
@@ -163,264 +160,44 @@ func (s SubcmdRunner) dirFiles(dot string) ([]string, error) {
 	return files, err
 }
 
-type fileDeployer struct {
-	ownJson string
-	force   bool
+type pathExpander struct {
+	dot string
 }
 
-func (d fileDeployer) Copy(m map[string]string, dot string) error {
-	err := d.ensureOwnership(m, dot)
+func (p pathExpander) expand(s string) (string, error) {
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return s, err
 	}
 
-	for k, v := range m {
-		src, err := os.Open(k)
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-
-		err = os.MkdirAll(filepath.Dir(v), 0777)
-		if err != nil {
-			return err
-		}
-
-		dest, err := os.Create(v)
-		if err != nil {
-			return err
-		}
-		defer dest.Close()
-
-		_, err = io.Copy(dest, src)
-		if err != nil {
-			return err
-		}
-
-		err = dest.Sync()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (d fileDeployer) Symlink(m map[string]string, dot string) error {
-	err := d.ensureOwnership(m, dot)
-	if err != nil {
-		return err
-	}
-
-	for k, v := range m {
-		err := os.MkdirAll(filepath.Dir(v), 0777)
-		if err != nil {
-			return err
-		}
-		err = os.Symlink(k, v)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (_ fileDeployer) Expand(s string, dot string) (string, error) {
-	home, _ := os.UserHomeDir()
 	s = strings.ReplaceAll(s, "~", home)
-	s = strings.ReplaceAll(s, "*", dot)
-	var err error
+	s = strings.ReplaceAll(s, "*", p.dot)
 	s = os.Expand(s, func(k string) string {
 		e, varExists := os.LookupEnv(k)
 		if err == nil && !varExists {
-			err = errors.New("Environment variable " + k + " is not set")
+			err = errors.New(
+				"Environment variable " + k + " is not set",
+			)
 		}
 		return e
 	})
 	return s, err
 }
 
-func (d fileDeployer) ensureOwnership(m map[string]string, dot string) error {
-	data, err := os.ReadFile(d.ownJson)
-	if err != nil {
-		return err
-	}
-
-	var dotOwn map[string][]string
-	err = json.Unmarshal(data, &dotOwn)
-	if err != nil {
-		return errors.New(
-			"Error unmarshalling own.json file: " + err.Error(),
-		)
-	}
-
-	ownedFileList := dotOwn[dot]
-	ownedFiles := make(map[string]struct{})
-	for _, file := range ownedFileList {
-		ownedFiles[file] = struct{}{}
-	}
-
-	outFiles := make([]string, 0, len(m))
-	for _, v := range m {
-		outFiles = append(outFiles, v)
-	}
-
-	for _, file := range outFiles {
-		var fileExists bool
-		if _, err := os.Stat(file); err == nil {
-			fileExists = true
-		} else if errors.Is(err, os.ErrNotExist) {
-			fileExists = false
-		} else {
-			return err
-		}
-
-		_, owned := ownedFiles[file]
-
-		if fileExists && (owned || d.force) {
-			err := os.RemoveAll(file)
-			if err != nil {
-				return err
-			}
-			fileExists = false
-		}
-
-		if fileExists {
-			// File should have been deleted if it was owned.
-			return errors.New(
-				file + " exists but is not owned by this directory",
-			)
-		}
-
-		if !owned {
-			ownedFileList = append(ownedFileList, file)
-		}
-	}
-
-	dotOwn[dot] = ownedFileList
-
-	data, err = json.Marshal(dotOwn)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(d.ownJson, data, 0666)
-
-	return err
-}
-
 func (s SubcmdRunner) undeploySubcmd(dots []string) error {
 	ownJson := filepath.Join(s.dir, ".estragon", "own.json")
-
-	data, err := os.ReadFile(ownJson)
-	if err != nil {
-		return err
-	}
-
-	var dotOwn map[string][]string
-	err = json.Unmarshal(data, &dotOwn)
-	if err != nil {
-		return err
-	}
-
-	for _, dot := range dots {
-		owned, ok := dotOwn[dot]
-		if ok {
-			for _, file := range owned {
-				fmt.Println("Removing file " + file)
-				if !s.dry {
-					err = os.Remove(file)
-					if err != nil {
-						return err
-					}
-
-					err = removeEmptyParents(file)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			delete(dotOwn, dot)
-		}
-	}
-
-	if s.dry {
-		fmt.Println()
-		fmt.Println("Directories that would be empty after these removals")
-		fmt.Println("as well as their parents will also be removed")
-	}
-
-	data, err = json.Marshal(dotOwn)
-	if err != nil {
-		return err
-	}
-
-	if !s.dry {
-		err = os.WriteFile(ownJson, data, 0666)
-	}
-
-	return err
-}
-
-func removeEmptyParents(file string) error {
-	dir := filepath.Dir(file)
-	for dir != "." {
-		dirFile, err := os.Open(dir)
+	own := OwnershipManager{ownJson, false}
+	undeployer := DotfileUndeployer{own, s.dry}
+	for i, dot := range dots {
+		err := undeployer.Undeploy(dot)
 		if err != nil {
 			return err
 		}
-		defer dirFile.Close()
-
-		_, err = dirFile.Readdirnames(1)
-		if errors.Is(err, io.EOF) {
-			// Folder is empty.
-			fmt.Println("Removing empty directory " + dir)
-			err = os.Remove(dir)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
+		if i != len(dots)-1 {
+			fmt.Println()
 		}
-
-		dir = filepath.Dir(dir)
 	}
 	return nil
-}
-
-func (s SubcmdRunner) envvarsSubcmd(envs []string) error {
-	envvars, err := s.getEnvvars()
-	if err != nil {
-		return err
-	}
-
-	for _, e := range envs {
-		pair := strings.SplitN(e, "=", 2)
-		if len(pair) == 2 {
-			envvars[pair[0]] = pair[1]
-		} else if strings.HasSuffix(e, "-") {
-			delete(envvars, strings.TrimSuffix(e, "-"))
-		} else {
-			fmt.Println(envvars[e])
-		}
-	}
-
-	envvarStr := ""
-
-	for k, v := range envvars {
-		// Actually set the variables as a sanity check before trying to
-		// commit potentially bad names.
-		err := os.Setenv(k, v)
-		if err != nil {
-			return err
-		}
-		envvarStr += k + "=" + v + "\n"
-	}
-
-	envvarFile := filepath.Join(s.dir, ".estragon", "envvars")
-	err = os.WriteFile(envvarFile, []byte(envvarStr), 0666)
-
-	return err
 }
 
 func (s SubcmdRunner) getEnvvars() (map[string]string, error) {
@@ -452,27 +229,19 @@ func (s SubcmdRunner) getEnvvars() (map[string]string, error) {
 
 func (s SubcmdRunner) printOwnership(dots []string) error {
 	ownJson := filepath.Join(s.dir, ".estragon", "own.json")
+	own := OwnershipManager{ownJson, false}
 
-	data, err := os.ReadFile(ownJson)
+	dotOwn, err := own.OwnedFiles()
 	if err != nil {
 		return err
 	}
-
-	var dotOwnJson map[string][]string
-	err = json.Unmarshal(data, &dotOwnJson)
-	if err != nil {
-		return err
-	}
-
-	var dotOwn map[string][]string
 
 	if len(dots) > 0 {
+		allOwnedDots := dotOwn
 		dotOwn = make(map[string][]string)
 		for _, dot := range dots {
-			dotOwn[dot] = dotOwnJson[dot]
+			dotOwn[dot] = allOwnedDots[dot]
 		}
-	} else {
-		dotOwn = dotOwnJson
 	}
 
 	for dot, owned := range dotOwn {
